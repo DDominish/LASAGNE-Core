@@ -43,3 +43,13 @@ amqp_qpid        = 0
 boost            = 0
 
 rabbitmq         = 0
+
+
+// Keep some GCC warnings quiet (Globally)
+
+// GCC 6 and 7
+no_deprecated_declarations      = 1
+
+// GCC 7 and 8
+no_implicit_fallthrough         = 1
+no_unused_result                = 1
