@@ -78,31 +78,34 @@ namespace DAF
     template <typename T> int
     SynchValue_T<T>::waitValue(const T & value, const ACE_Time_Value * abstime) const
     {
-        ACE_GUARD_REACTION(_mutex_type, guard, *this, DAF_THROW_EXCEPTION(LockFailureException));
-
         while (!this->interrupted()) {
 
-            // Register Atomic-Signallable Semaphore Waiter
-            ValueSemaphoreWaiterGuard waiterGuard(this->valueSemaphore_); ACE_UNUSED_ARG(waiterGuard);
-
-            // Get/Wait for next value to test
+            ACE_GUARD_REACTION(_mutex_type, guard, *this, DAF_THROW_EXCEPTION(LockFailureException));
 
             if (this->value_ == value) {
                 return 0; // All Good
             }
-            else if (this->wait(abstime)) {
-                switch (this->interrupted() ? EINTR : DAF_OS::last_error()) {
-                case ETIME:
-                    if (this->value_ == value) {
-                        return 0; // All Good
-                    }
-                    DAF_THROW_EXCEPTION(TimeoutException);
-                }
 
-                // Retry Interrupted testing loop
-            }
-            else if (this->value_ == value) {
-                return 0; // All Good
+            // Wait for next value to test
+
+            {   // Register Atomic-Signallable Semaphore Waiter and wait for value to change
+
+                ValueSemaphoreWaiterGuard waiterGuard(this->valueSemaphore_); ACE_UNUSED_ARG(waiterGuard);
+
+                if (this->wait(abstime)) {
+                    switch (this->interrupted() ? EINTR : DAF_OS::last_error()) {
+                    case ETIME:
+                        if (this->value_ == value) {
+                            return 0; // All Good
+                        }
+                        DAF_THROW_EXCEPTION(TimeoutException);
+                    }
+
+                    // Retry Interrupted testing loop
+                }
+                else if (this->value_ == value) {
+                    return 0; // All Good
+                }
             }
         }
 
