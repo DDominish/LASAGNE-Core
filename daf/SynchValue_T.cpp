@@ -78,17 +78,19 @@ namespace DAF
     template <typename T> int
     SynchValue_T<T>::waitValue(const T & value, const ACE_Time_Value * abstime) const
     {
+        ACE_GUARD_REACTION(_mutex_type, guard, *this, DAF_THROW_EXCEPTION(LockFailureException));
+
         for (;;) {
 
             if (this->interrupted()) {
                 DAF_THROW_EXCEPTION(InterruptedException);
             }
+            else if (this->value_ == value) {
+                return 0;
+            }
+            else {  // Register Atomic-Signallable Semaphore Waiter and wait for next value
 
-            ACE_GUARD_REACTION(_mutex_type, guard, *this, DAF_THROW_EXCEPTION(LockFailureException));
-
-            if (!(this->value_ == value)) do {
-
-                ValueSemaphoreWaiterGuard waiterGuard(this->valueSemaphore_); ACE_UNUSED_ARG(waiterGuard); // Register Waiter
+                ValueSemaphoreWaiterGuard waiterGuard(this->valueSemaphore_); ACE_UNUSED_ARG(waiterGuard);
 
                 if (this->wait(abstime)) {
                     int last_error = DAF_OS::last_error();
@@ -97,7 +99,7 @@ namespace DAF
                     case EINTR: DAF_THROW_EXCEPTION(InterruptedException);
                     case ETIME:
                         if (this->value_ == value) {
-                            continue; // Go to exit test
+                            return 0; // All Good
                         }
 
                         DAF_THROW_EXCEPTION(TimeoutException);
@@ -105,11 +107,6 @@ namespace DAF
 
                     DAF_OS::last_error(last_error); return -1;
                 }
-
-            } while (false);
-
-            if (this->value_ == value) {
-                return 0;
             }
         }
 
