@@ -94,11 +94,15 @@ namespace DAF
 
                 if (this->wait(abstime)) {
                     switch (this->interrupted() ? EINTR : DAF_OS::last_error()) {
+                    case EINTR: continue; // Retry Interrupted testing loop
                     case ETIME:
                         if (this->value_ == value) {
                             return 0; // All Good
                         }
+#if 1 // Original implementation throws a TimeoutException here - Maybe should return errno in future release
                         DAF_THROW_EXCEPTION(TimeoutException);
+#endif
+                    default: return -1;     // Return with errno set
                     }
 
                     // Retry Interrupted testing loop
