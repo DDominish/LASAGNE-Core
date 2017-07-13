@@ -107,6 +107,8 @@ namespace DAF
             int releaseWaiter(void);
             int acquireWaiter(void);
 
+            int valueWaiters(void) const;
+
         private:
 
             class ValueWaiters : Monitor
@@ -120,6 +122,8 @@ namespace DAF
 
                 int operator ++ (); // Prefix
                 int operator -- (); // Prefix
+
+                int valueWaiters(void) const;
 
             } valueWaiters_;
 

@@ -48,20 +48,20 @@ namespace DAF
     template <typename T> int
     SynchValue_T<T>::setValue(const T & value)
     {
-        ACE_GUARD_REACTION(_mutex_type, val_guard, this->valueLock_, DAF_THROW_EXCEPTION(LockFailureException));
-
         if (this->interrupted()) {
             DAF_THROW_EXCEPTION(InterruptedException);
         }
 
         int result = 0, waiter_count = 0;
 
+        ACE_GUARD_REACTION(_mutex_type, val_guard, this->valueLock_, DAF_THROW_EXCEPTION(LockFailureException));
+
         {
             ACE_GUARD_REACTION(_mutex_type, guard, *this, DAF_THROW_EXCEPTION(LockFailureException));
 
             this->value_ = value;
 
-            if ((waiter_count = this->waiters()) > 0) {
+            if ((waiter_count = this->valueSemaphore_.valueWaiters()) > 0) {
                 this->broadcast();
             }
         }
@@ -80,37 +80,34 @@ namespace DAF
     {
         ACE_GUARD_REACTION(_mutex_type, guard, *this, DAF_THROW_EXCEPTION(LockFailureException));
 
-        for (;;) {
+        while (!this->interrupted()) {
 
-            if (this->interrupted()) {
-                DAF_THROW_EXCEPTION(InterruptedException);
+            // Register Atomic-Signallable Semaphore Waiter and wait for next value
+            ValueSemaphoreWaiterGuard waiterGuard(this->valueSemaphore_); ACE_UNUSED_ARG(waiterGuard);
+
+            if (this->value_ == value) {
+                return 0;
+            }
+            else if (this->wait(abstime)) {
+                int last_error = DAF_OS::last_error();
+                switch (this->interrupted() ? DAF_OS::last_error(EINTR) : last_error) {
+                case EINTR: continue; // Exit loop
+                case ETIME:
+                    if (this->value_ == value) {
+                        return 0; // All Good
+                    }
+
+                    DAF_THROW_EXCEPTION(TimeoutException);
+                }
+
+                DAF_OS::last_error(last_error); return -1;
             }
             else if (this->value_ == value) {
                 return 0;
             }
-            else {  // Register Atomic-Signallable Semaphore Waiter and wait for next value
-
-                ValueSemaphoreWaiterGuard waiterGuard(this->valueSemaphore_); ACE_UNUSED_ARG(waiterGuard);
-
-                if (this->wait(abstime)) {
-                    int last_error = DAF_OS::last_error();
-                    switch (this->interrupted() ? DAF_OS::last_error(EINTR) : last_error) {
-                    case 0:     continue; // Maybe woken up without error??
-                    case EINTR: DAF_THROW_EXCEPTION(InterruptedException);
-                    case ETIME:
-                        if (this->value_ == value) {
-                            return 0; // All Good
-                        }
-
-                        DAF_THROW_EXCEPTION(TimeoutException);
-                    }
-
-                    DAF_OS::last_error(last_error); return -1;
-                }
-            }
         }
 
-        return -1; // Keep the compiler happy - Should never get here
+        DAF_THROW_EXCEPTION(InterruptedException);
     }
 
     /** Wait on a Latched Value until abs time value tv */
@@ -141,17 +138,23 @@ namespace DAF
     }
 
     template <typename T> inline int
+    SynchValue_T<T>::ValueSemaphore::valueWaiters(void) const
+    {
+        return this->valueWaiters_.valueWaiters();
+    }
+
+    template <typename T> inline int
     SynchValue_T<T>::ValueSemaphore::acquireWaiter(void)
     {
         ACE_Errno_Guard g(errno); ACE_UNUSED_ARG(g); // Preserve errno
-        return ++this->valueWaiters_;
+        ++this->valueWaiters_; return 0;
     }
 
     template <typename T> inline int
     SynchValue_T<T>::ValueSemaphore::releaseWaiter(void)
     {
         ACE_Errno_Guard g(errno); ACE_UNUSED_ARG(g); // Preserve errno
-        int result = this->release(); --this->valueWaiters_; return result;
+        --this->valueWaiters_; return this->release();
     }
 
     /***********************************************************************************/
@@ -166,11 +169,17 @@ namespace DAF
     SynchValue_T<T>::ValueSemaphore::ValueWaiters::~ValueWaiters(void)
     {
         ACE_GUARD(_mutex_type, mon, *this);
-        for (const ACE_Time_Value abstime(DAF_OS::gettimeofday(DAF_MSECS_ONE_SECOND)); this->valueWaiters_ > 0;) { // Wait 1 Second
+        for (const ACE_Time_Value abstime(DAF_OS::gettimeofday(DAF_MSECS_ONE_SECOND)); this->valueWaiters_ > 0;) { // Wait upto 1 Second
             if (this->wait(abstime) && DAF_OS::last_error() == ETIME) {
                 break;
             }
         }
+    }
+
+    template <typename T> int
+    SynchValue_T<T>::ValueSemaphore::ValueWaiters::valueWaiters(void) const
+    {
+        return this->valueWaiters_;
     }
 
     template <typename T> int
