@@ -82,28 +82,27 @@ namespace DAF
 
         while (!this->interrupted()) {
 
-            // Register Atomic-Signallable Semaphore Waiter and wait for next value
+            // Register Atomic-Signallable Semaphore Waiter
             ValueSemaphoreWaiterGuard waiterGuard(this->valueSemaphore_); ACE_UNUSED_ARG(waiterGuard);
 
+            // Get/Wait for next value to test
+
             if (this->value_ == value) {
-                return 0;
+                return 0; // All Good
             }
             else if (this->wait(abstime)) {
-                int last_error = DAF_OS::last_error();
-                switch (this->interrupted() ? DAF_OS::last_error(EINTR) : last_error) {
-                case EINTR: continue; // Exit loop
+                switch (this->interrupted() ? EINTR : DAF_OS::last_error()) {
                 case ETIME:
                     if (this->value_ == value) {
                         return 0; // All Good
                     }
-
                     DAF_THROW_EXCEPTION(TimeoutException);
                 }
 
-                DAF_OS::last_error(last_error); return -1;
+                // Retry Interrupted testing loop
             }
             else if (this->value_ == value) {
-                return 0;
+                return 0; // All Good
             }
         }
 
