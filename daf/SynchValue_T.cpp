@@ -101,11 +101,11 @@ namespace DAF
                         }
 #if 1 // Original implementation throws a TimeoutException here - Maybe should return errno in future release
                         DAF_THROW_EXCEPTION(TimeoutException);
+#else
+                        // Fall through
 #endif
                     default: return -1;     // Return with errno set
                     }
-
-                    // Retry Interrupted testing loop
                 }
                 else if (this->value_ == value) {
                     return 0; // All Good
