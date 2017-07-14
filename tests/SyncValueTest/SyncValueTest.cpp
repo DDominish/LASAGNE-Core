@@ -393,8 +393,8 @@ int test_SyncValueDestruction(int threadCount )
         delete sync;
     }
 
-    // Was IllegalThreadStateException || InterruptedException thrown ?
-    value = waiter->illegal + waiter->interrupted;
+    // Was InterruptedException thrown ?
+    value = waiter->interrupted;
 
     result = (expected == value);
 
@@ -513,8 +513,8 @@ int test_SyncValueMultipleSetters(int threadCount )
         delete sync;
     }
 
-    // Was IllegalThreadStateException thrown ?
-    value = waiter->illegal + waiter->interrupted;
+    // Was InterruptedException thrown ?
+    value = waiter->interrupted;
 
     result = (expected == value);
 
