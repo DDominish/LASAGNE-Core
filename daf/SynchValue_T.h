@@ -24,6 +24,8 @@ License along with LASAGNE.  If not, see <http://www.gnu.org/licenses/>.
 #include "Monitor.h"
 #include "Semaphore.h"
 
+#include <algorithm>
+
 namespace DAF
 {
      /** @class SynchValue
@@ -35,7 +37,7 @@ namespace DAF
      * When a the requested value is found. the Waiting Thread will
      * exit and return.
      */
-    template <typename T>
+    template < typename T, typename F = std::equal_to<const T &> >
     class SynchValue_T : protected Monitor
     {
         using Monitor::wait;    // Hide Monitor::wait
@@ -43,6 +45,7 @@ namespace DAF
     public:
 
         typedef T   _value_type;
+        typedef F   _comparator_type;
 
         typedef typename Monitor::_mutex_type   _mutex_type;
 
@@ -92,7 +95,7 @@ namespace DAF
 
     protected:
 
-        T  value_;
+        T   value_;
 
     private:
 
@@ -144,12 +147,10 @@ namespace DAF
         };
     };
 
-    template <typename T>
-    struct SynchValue : SynchValue_T<T> {   // Backwards Compatability
-        SynchValue(const T & value = T()) : SynchValue_T<T>(value) {}
+    template < typename T, typename F = std::equal_to<const T &> >
+    struct SynchValue : SynchValue_T<T,F> {   // Backwards Compatability
+        SynchValue(const T & value = T()) : SynchValue_T<T,F>(value) {}
     };
-
-    typedef SynchValue<bool>    SynchLatch; // Backwards Compatability
 
 }  // namespace DAF
 

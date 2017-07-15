@@ -27,26 +27,26 @@ License along with LASAGNE.  If not, see <http://www.gnu.org/licenses/>.
 
 namespace DAF
 {
-    template <typename T> inline
-    SynchValue_T<T>::SynchValue_T(const T &value) : Monitor()
+    template <typename T, typename F> inline
+    SynchValue_T<T,F>::SynchValue_T(const T & value) : Monitor()
         , value_(value), valueSemaphore_(0)
     {
     }
 
-    template <typename T>
-    SynchValue_T<T>::~SynchValue_T(void)
+    template <typename T, typename F>
+    SynchValue_T<T,F>::~SynchValue_T(void)
     {
         this->interrupt();
     }
 
-    template <typename T> T
-    SynchValue_T<T>::getValue(void) const
+    template <typename T, typename F> T
+    SynchValue_T<T,F>::getValue(void) const
     {
         ACE_GUARD_RETURN(_mutex_type, val_guard, this->valueLock_, this->value_); return this->value_;
     }
 
-    template <typename T> int
-    SynchValue_T<T>::setValue(const T & value)
+    template <typename T, typename F> int
+    SynchValue_T<T,F>::setValue(const T & value)
     {
         if (this->interrupted()) {
             DAF_THROW_EXCEPTION(InterruptedException);
@@ -75,14 +75,14 @@ namespace DAF
         return result;
     }
 
-    template <typename T> int
-    SynchValue_T<T>::waitValue(const T & value, const ACE_Time_Value * abstime) const
+    template <typename T, typename F> int
+    SynchValue_T<T,F>::waitValue(const T & value, const ACE_Time_Value * abstime) const
     {
         while (!this->interrupted()) {
 
             ACE_GUARD_REACTION(_mutex_type, guard, *this, DAF_THROW_EXCEPTION(LockFailureException));
 
-            if (this->value_ == value) {
+            if (_comparator_type()(this->value_,value)) {
                 return 0; // All Good
             }
 
@@ -96,7 +96,7 @@ namespace DAF
                     switch (this->interrupted() ? EINTR : DAF_OS::last_error()) {
                     case EINTR: continue; // Retry Interrupted testing loop
                     case ETIME:
-                        if (this->value_ == value) {
+                        if (_comparator_type()(this->value_,value)) {
                             return 0; // All Good
                         }
 #if 1 // Original implementation throws a TimeoutException here - Maybe should return errno in future release
@@ -107,7 +107,7 @@ namespace DAF
                     default: return -1;     // Return with errno set
                     }
                 }
-                else if (this->value_ == value) {
+                else if (_comparator_type()(this->value_,value)) {
                     return 0; // All Good
                 }
             }
@@ -117,47 +117,47 @@ namespace DAF
     }
 
     /** Wait on a Latched Value until abs time value tv */
-    template <typename T> inline int
-    SynchValue_T<T>::waitValue(const T & value, const ACE_Time_Value & abstime) const
+    template <typename T, typename F> inline int
+    SynchValue_T<T,F>::waitValue(const T & value, const ACE_Time_Value & abstime) const
     {
         return this->waitValue(value, &abstime);
     }
 
     /** Wait on a Latched Value for upto msec */
-    template <typename T> inline int
-    SynchValue_T<T>::waitValue(const T & value, time_t msecs) const
+    template <typename T, typename F> inline int
+    SynchValue_T<T,F>::waitValue(const T & value, time_t msecs) const
     {
         return this->waitValue(value, DAF_OS::gettimeofday(ace_max(msecs, time_t(0))));
     }
 
     /***********************************************************************************/
 
-    template <typename T> inline
-    SynchValue_T<T>::ValueSemaphore::ValueSemaphore(int permits) : Semaphore(permits)
+    template <typename T, typename F> inline
+    SynchValue_T<T,F>::ValueSemaphore::ValueSemaphore(int permits) : Semaphore(permits)
         , valueWaiters_(0)
     {}
 
-    template <typename T> inline
-    SynchValue_T<T>::ValueSemaphore::~ValueSemaphore(void)
+    template <typename T, typename F> inline
+    SynchValue_T<T,F>::ValueSemaphore::~ValueSemaphore(void)
     {
         this->interrupt();
     }
 
-    template <typename T> inline int
-    SynchValue_T<T>::ValueSemaphore::valueWaiters(void) const
+    template <typename T, typename F> inline int
+    SynchValue_T<T,F>::ValueSemaphore::valueWaiters(void) const
     {
         return this->valueWaiters_.valueWaiters();
     }
 
-    template <typename T> inline int
-    SynchValue_T<T>::ValueSemaphore::acquireWaiter(void)
+    template <typename T, typename F> inline int
+    SynchValue_T<T,F>::ValueSemaphore::acquireWaiter(void)
     {
         ACE_Errno_Guard g(errno); ACE_UNUSED_ARG(g); // Preserve errno
         ++this->valueWaiters_; return 0;
     }
 
-    template <typename T> inline int
-    SynchValue_T<T>::ValueSemaphore::releaseWaiter(void)
+    template <typename T, typename F> inline int
+    SynchValue_T<T,F>::ValueSemaphore::releaseWaiter(void)
     {
         ACE_Errno_Guard g(errno); ACE_UNUSED_ARG(g); // Preserve errno
         --this->valueWaiters_; return this->release();
@@ -165,14 +165,14 @@ namespace DAF
 
     /***********************************************************************************/
 
-    template <typename T> inline
-    SynchValue_T<T>::ValueSemaphore::ValueWaiters::ValueWaiters(int valueWaiters) : Monitor()
+    template <typename T, typename F> inline
+    SynchValue_T<T,F>::ValueSemaphore::ValueWaiters::ValueWaiters(int valueWaiters) : Monitor()
         , valueWaiters_(valueWaiters)
     {
     }
 
-    template <typename T>
-    SynchValue_T<T>::ValueSemaphore::ValueWaiters::~ValueWaiters(void)
+    template <typename T, typename F>
+    SynchValue_T<T,F>::ValueSemaphore::ValueWaiters::~ValueWaiters(void)
     {
         ACE_GUARD(_mutex_type, mon, *this);
         for (const ACE_Time_Value abstime(DAF_OS::gettimeofday(DAF_MSECS_ONE_SECOND)); this->valueWaiters_ > 0;) { // Wait upto 1 Second
@@ -182,21 +182,21 @@ namespace DAF
         }
     }
 
-    template <typename T> int
-    SynchValue_T<T>::ValueSemaphore::ValueWaiters::valueWaiters(void) const
+    template <typename T, typename F> int
+    SynchValue_T<T,F>::ValueSemaphore::ValueWaiters::valueWaiters(void) const
     {
         return this->valueWaiters_;
     }
 
-    template <typename T> int
-    SynchValue_T<T>::ValueSemaphore::ValueWaiters::operator ++ () // Prefix
+    template <typename T, typename F> int
+    SynchValue_T<T,F>::ValueSemaphore::ValueWaiters::operator ++ () // Prefix
     {
         ACE_GUARD_RETURN(_mutex_type, mon, *this, ++this->valueWaiters_); // Just increment value on lock failure
         int value = ++this->valueWaiters_; this->signal(); return value;
     }
 
-    template <typename T> int
-    SynchValue_T<T>::ValueSemaphore::ValueWaiters::operator -- () // Prefix
+    template <typename T, typename F> int
+    SynchValue_T<T,F>::ValueSemaphore::ValueWaiters::operator -- () // Prefix
     {
         ACE_GUARD_RETURN(_mutex_type, mon, *this, --this->valueWaiters_); // Just decrement value on lock failure
         int value = --this->valueWaiters_; this->signal(); return value;
