@@ -147,11 +147,6 @@ namespace DAF
         };
     };
 
-    template < typename T, typename F = std::equal_to<const T &> >
-    struct SynchValue : SynchValue_T<T,F> {   // Backwards Compatability
-        SynchValue(const T & value = T()) : SynchValue_T<T,F>(value) {}
-    };
-
 }  // namespace DAF
 
 #if defined (ACE_TEMPLATES_REQUIRE_SOURCE)

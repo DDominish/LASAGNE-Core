@@ -30,7 +30,7 @@ namespace test
 bool debug = false;
 const char *TEST_NAME = "SynchValueTest";
 
-typedef DAF::SynchValue<int> SynchTest_t;
+typedef DAF::SynchValue_T<int> SynchTest_t;
 
 //TEST
 // TODO
