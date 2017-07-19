@@ -55,6 +55,12 @@ namespace DAF
         DAF_THROW_EXCEPTION(InitializationException);
     }
 
+    template <typename T, typename F> int
+    Rendezvous<T, F>::interrupt(void)
+    {
+        return Motitor::interrupt() + this->rendezvousSemaphore_.interrupt() ? -1 : 0;
+    }
+
     template <typename T, typename F> bool
     Rendezvous<T, F>::broken(void) const
     {
@@ -76,7 +82,7 @@ namespace DAF
             switch (this->interrupted() ? EINTR : DAF_OS::last_error()) {
             case EINTR: DAF_THROW_EXCEPTION(InterruptedException);
             case ETIME: DAF_THROW_EXCEPTION(TimeoutException);
-            default:    DAF_THROW_EXCEPTION(BrokenBarrierException);
+            default:    DAF_THROW_EXCEPTION(InternalException);
             }
         }
 

@@ -103,7 +103,7 @@ namespace DAF
         /**
         * Create a Barrier for the indicated number of parties,
         */
-        Rendezvous(int parties, _function_type & function);
+        Rendezvous(int parties, _function_type & function = F());
 
         /** \todo{Fill this in} */
         virtual ~Rendezvous(void);
@@ -149,9 +149,9 @@ namespace DAF
         bool    waitReset(const ACE_Time_Value & abstime);
         bool    waitReset(time_t msecs);
 
+        int     interrupt(void);
 
         using Monitor::waiters;
-        using Monitor::interrupt;
         using Monitor::interrupted;
 
     private:

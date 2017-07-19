@@ -83,7 +83,7 @@ namespace DAF
 
         int attempt(time_t msecs); // Backwards Compatability
 
-        /** Release multiple @a permits. NOTE: permits can legally go negative! */
+        /** Release multiple @a permits. (permits >= 0) */
         int release(int permits = 1);
 
         using Monitor::waiters;
@@ -97,7 +97,8 @@ namespace DAF
     } WaiterPreferenceSemaphore; /* Documented within Doug Lee's book on Concurrency in Java */
 
     inline
-    Semaphore::Semaphore(int permits) : permits_(permits)
+    Semaphore::Semaphore(int permits) : Monitor()
+        , permits_(permits)
     {
     }
 
