@@ -84,22 +84,11 @@ namespace DAF
     }
 
     int
-    Semaphore::release(void)
+    Semaphore::release(int permits) // NOTE: permits can legally go negative!
     {
         ACE_GUARD_REACTION(_mutex_type, guard, *this, DAF_THROW_EXCEPTION(LockFailureException));
-        ++this->permits_;
+        this->permits_ += permits;
         return this->signal();
-    }
-
-    int
-    Semaphore::release(int n)
-    {
-        int result = 0; while (n-- > 0) {
-            if (this->release()) {
-                result = -1;
-            }
-        }
-        return result;
     }
 
 } // namespace DAF

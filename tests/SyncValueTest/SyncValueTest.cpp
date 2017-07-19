@@ -30,7 +30,7 @@ namespace test
 bool debug = false;
 const char *TEST_NAME = "SynchValueTest";
 
-typedef DAF::SynchValue<int> SynchTest_t;
+typedef DAF::SynchValue_T<int> SynchTest_t;
 
 //TEST
 // TODO
@@ -55,6 +55,9 @@ struct TestSyncWaiter : DAF::Runnable
 {
     int value;
     SynchTest_t &sync;
+    int unknown;
+    int unexpected;
+    int interrupted;
     int illegal;
     int timeout;
     time_t timey;
@@ -64,6 +67,9 @@ struct TestSyncWaiter : DAF::Runnable
     TestSyncWaiter(DAF::Semaphore &sema_in, int value_in,SynchTest_t &sync_in, time_t tv = 0) : DAF::Runnable()
     , value(value_in)
     , sync(sync_in)
+    , unknown(0)
+    , unexpected(0)
+    , interrupted(0)
     , illegal(0)
     , timeout(0)
     , timey(tv)
@@ -83,13 +89,28 @@ struct TestSyncWaiter : DAF::Runnable
                result = this->sync.waitValue(value);
             }
 
-            if (debug) ACE_DEBUG((LM_DEBUG, "(%P|%t) %T - 0x%08X Exit  Sync for   Value %d \n", this, value));
-        } catch (const DAF::TimeoutException &) {
+            if (debug) ACE_DEBUG((LM_DEBUG, "(%P|%t) %T - 0x%08X Clean Exit Waiting Sync for Value %d \n", this, value));
+        }
+        catch (const DAF::TimeoutException &) {
             this->timeout++;
             if (debug) ACE_DEBUG((LM_DEBUG, "(%P|%t) %T - 0x%08X TimeoutException \n", this));
-        } catch (const DAF::IllegalThreadStateException &) {
+        }
+        catch (const DAF::InterruptedException &) {
+            this->interrupted++;
+            if (debug) ACE_DEBUG((LM_DEBUG, "(%P|%t) %T - 0x%08X InterruptedException \n", this));
+        }
+        catch (const DAF::IllegalThreadStateException &) {
             this->illegal++;
             if (debug) ACE_DEBUG((LM_DEBUG, "(%P|%t) %T - 0x%08X IllegalThreadStateException \n", this));
+        }
+        catch (const std::exception &ex) {
+            this->unexpected++;
+            if (debug) ACE_DEBUG((LM_DEBUG, "(%P|%t) %T - 0x%08X std::exception %s\n", this, ex.what()));
+        }
+        catch (...) {
+            this->unknown++;
+            if (debug) ACE_DEBUG((LM_DEBUG, "(%P|%t) %T - 0x%08X UNKNOWN Exception Waiting Sync for Value %d\n", this, value));
+            throw;
         }
 
         return 0;
@@ -113,12 +134,27 @@ struct TestSyncWriter : TestSyncWaiter
             result = this->sync.setValue(value);
 
             if (debug) ACE_DEBUG((LM_DEBUG, "(%P|%t) %T - 0x%08X Exit  Sync for   Value %d \n", this, value));
-        } catch (const DAF::TimeoutException &) {
+        }
+        catch (const DAF::TimeoutException &) {
             this->timeout++;
             if (debug) ACE_DEBUG((LM_DEBUG, "(%P|%t) %T - 0x%08X TimeoutException \n", this));
-        } catch (const DAF::IllegalThreadStateException &) {
+        }
+        catch (const DAF::InterruptedException &) {
+            this->interrupted++;
+            if (debug) ACE_DEBUG((LM_DEBUG, "(%P|%t) %T - 0x%08X InterruptedException \n", this));
+        }
+        catch (const DAF::IllegalThreadStateException &) {
             this->illegal++;
             if (debug) ACE_DEBUG((LM_DEBUG, "(%P|%t) %T - 0x%08X IllegalThreadStateException \n", this));
+        }
+        catch (const std::exception &ex) {
+            this->unexpected++;
+            if (debug) ACE_DEBUG((LM_DEBUG, "(%P|%t) %T - 0x%08X std::exception %s\n", this, ex.what()));
+        }
+        catch (...) {
+            this->unknown++;
+            if (debug) ACE_DEBUG((LM_DEBUG, "(%P|%t) %T - 0x%08X UNKNOWN Exception Waiting Sync for Value %d\n", this, value));
+            throw;
         }
 
         return 0;
@@ -291,7 +327,7 @@ int test_SyncValueMultipleWaitersWithTimeoutEarly(int threadCount )
         }
 
         try {
-            sync.waitValue(123, 0);
+            sync.waitValue(123, time_t(0));
         } catch (const DAF::TimeoutException &) {
            // do nothing
             //std::cout << "Timeout" << std::endl;
@@ -357,8 +393,8 @@ int test_SyncValueDestruction(int threadCount )
         delete sync;
     }
 
-    // Was IllegalThreadStateException thrown ?
-    value = waiter->illegal;
+    // Was InterruptedException thrown ?
+    value = waiter->interrupted;
 
     result = (expected == value);
 
@@ -477,8 +513,8 @@ int test_SyncValueMultipleSetters(int threadCount )
         delete sync;
     }
 
-    // Was IllegalThreadStateException thrown ?
-    value = waiter->illegal;
+    // Was InterruptedException thrown ?
+    value = waiter->interrupted;
 
     result = (expected == value);
 
@@ -502,6 +538,8 @@ void print_usage(const ACE_Get_Opt &cli_opt)
 
 int main(int argc, char *argv[])
 {
+    ACE_DEBUG((LM_INFO, ACE_TEXT("(%P|%t) %T - %C\n"), test::TEST_NAME));
+
     int result = 1, threadCount = 10;
 
     ACE_Get_Opt cli_opt(argc, argv, "hzn:");
@@ -516,7 +554,6 @@ int main(int argc, char *argv[])
         case 'n': threadCount = DAF_OS::atoi(cli_opt.opt_arg());
     }
 
-    std::cout << test::TEST_NAME << std::endl;
     result &= test::test_SyncValueBasicWorking(threadCount);
     result &= test::test_SyncValueMultipleWaiters(threadCount);
     result &= test::test_SyncValueMultipleWaitersWithTimeout(threadCount);

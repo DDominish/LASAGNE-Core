@@ -27,32 +27,33 @@
 
 namespace DAF
 {
-    template <typename T> void
-    RendezvousRotator<T>::operator () (std::vector<T> &val)
+    template <typename T> typename RendezvousRotator<T>::result_type
+    RendezvousRotator<T>::operator () (typename RendezvousRotator<T>::argument_type & val)
     {
-        if (!val.empty()) try {
+        if (!val.empty()) {
             val.push_back(val.front()); val.erase(val.begin());
-        } DAF_CATCH_ALL { /* Ignore Error */ }
+        }
     }
 
     /********************************************************************/
 
     template <typename T, typename F>
-    Rendezvous<T,F>::Rendezvous(int parties)
-        : entryGate_    (parties)
-        , parties_      (parties)
-        , synch_        (0)
-        , count_        (0)
-        , resets_       (0)
-        , broken_       (false)
-        , shutdown_     (false)
-        , triggered_    (false)
+    Rendezvous<T,F>::Rendezvous(int parties, _function_type & function) : Monitor()
+        , rendezvousSemaphore_  (ace_max(0, parties))
+        , rendezvousFunction_   (function)
+        , parties_              (0)
+        , count_                (0)
+        , resets_               (0)
+        , synch_                (0)
+        , broken_               (false)
+        , triggered_            (false)
+
     {
-        if ( parties == 0 ) throw InitializationException("DAF::Rendezvous Initialization Error parties == 0");
-
-        this->slots_.reserve(parties + 2);  // Reserve enough space for manipulation (+2)
+        if ((this->parties_ = this->rendezvousSemaphore_.permits()) != 0) {
+            this->rendezvousSlots_.reserve(this->parties_ + 2); return; // Reserve enough space for manipulation (+2)
+        }
+        DAF_THROW_EXCEPTION(InitializationException);
     }
-
 
     template <typename T, typename F> bool
     Rendezvous<T, F>::broken(void) const
@@ -67,128 +68,147 @@ namespace DAF
     }
 
     template <typename T, typename F> T
-     Rendezvous<T, F>::rendezvous(const T & t, const ACE_Time_Value * abstime)
+    Rendezvous<T, F>::rendezvous(const T & t, const ACE_Time_Value * abstime)
     {
-        while (!this->interrupted()) {
+        ACE_GUARD_REACTION(_mutex_type, mon, *this, DAF_THROW_EXCEPTION(LockFailureException));
 
-            ACE_GUARD_READTION(_mutex_type, mon, *this, DAF_THROW_EXCEPTION(LockFailureException));
-
-            if (this->entryGate_.acquire(abstime)) {
-                switch (this->interrupted() ? EINTR : DAF_OS::last_error()) {
-                case EINTR: continue;
-                case ETIME: DAF_THROW_EXCEPTION(TimeoutException);
-
-                default: return -1;
-                }
+        if (this->rendezvousSemaphore_.acquire(abstime)) {
+            switch (this->interrupted() ? EINTR : DAF_OS::last_error()) {
+            case EINTR: DAF_THROW_EXCEPTION(InterruptedException);
+            case ETIME: DAF_THROW_EXCEPTION(TimeoutException);
+            default:    DAF_THROW_EXCEPTION(BrokenBarrierException);
             }
+        }
 
-            int index = this->count_++; this->slots_.push_back(t); this->resets_ = this->count_;
+        int index = this->resets_ = ++this->count_; this->rendezvousSlots_[--index] = t; // Put value into container at our index
 
-            while (!(this->broken_ || this->triggered_)) try {
-                if (this->count_ == this->parties_) {
-                    F()(this->slots_); this->triggered_ = true; break;
+        for (;;) try {
+
+            if (this->interrupted()) {
+                DAF_THROW_EXCEPTION(InterruptedException);
+            }
+            else if (this->broken_) {
+                DAF_THROW_EXCEPTION(BrokenBarrierException);
+            }
+            else if (this->triggered_) {
+
+                T t_rtn = this->rendezvousSlots_[index];
+
+                if (--this->count_ == 0) {
+                    this->broken_ = this->triggered_ = false;
+                    this->rendezvousSemaphore_.release(this->resets_); this->resets_ = 0;
+                    ++this->synch_; this->broadcast();
                 }
-                else if (this->wait(abstime)) {
+
+                return t_rtn;
+            }
+            else if (this->rendezvousSemaphore_.permits()) {
+                if (this->wait(abstime)) {
                     switch (this->interrupted() ? EINTR : DAF_OS::last_error()) {
-                    case EINTR: DAF_THROW_EXCEPTION(InterruptedException);
+                    case EINTR: continue;
                     case ETIME: DAF_THROW_EXCEPTION(TimeoutException);
-                    default:    DAF_THROW_EXCEPTION(BrokenBarrierException);
+                    default:    this->broken_ = true; this->broadcast();
                     }
                 }
             }
-            catch (...) {
-                ACE_Errno_Guard g(errno); ACE_UNUSED_ARG(g);
-                --this->count_; --this->resets_;
-                this->broken_ = true;
+            else {
+                this->rendezvousFunction_(this->rendezvousSlots_);
+                this->triggered_ = true;
                 this->broadcast();
-                throw;
             }
-
         }
-
-        DAF_THROW_EXCEPTION(InterruptedException);
+        catch (...) {
+            ACE_Errno_Guard g(errno); ACE_UNUSED_ARG(g);
+            this->broken_ = true;
+            if (--this->count_ == 0) {
+                this->broken_ = this->triggered_ = false;
+                this->rendezvousSemaphore_.release(this->resets_); this->resets_ = 0;
+                ++this->synch_;
+            }
+            this->broadcast(); throw;
+        }
     }
-    //    const ACE_Time_Value end_time(DAF_OS::gettimeofday(msec));
-
-    //    bool timeout    = false;
-    //    size_t index    = this->count_;
-
-    //    T t_rtn(t);
-
-    //    this->slots_.push_back(t);
-    //    this->resets_ = ++this->count_;
-
-    //    while (!(this->broken_ || this->triggered_)) try {
-    //        if (this->shutdown_) {
-    //            this->broken_ = true;
-    //        } else if (this->count_ != this->parties_) {
-    //            if (end_time > DAF_OS::gettimeofday()) {
-    //                this->wait(end_time);
-    //            } else timeout = this->broken_ = true;
-    //        } else {
-    //            F()(this->slots_); this->triggered_ = true;
-    //        }
-    //    } catch(...) { // JB: Deliberate catch(...) - DON'T replace with DAF_CATCH_ALL
-    //        --this->resets_;
-    //        --this->count_;
-    //        this->broken_ = true;
-    //        this->notifyAll();
-    //        throw;
-    //    }
-
-    //    if (index >= this->slots_.size()) {
-    //        this->broken_ = true;
-    //    } else {
-    //        t_rtn = this->slots_[index];
-    //    }
-
-    //    bool broken = this->broken_, shutdown = this->shutdown_; // Get state onto the stack
-
-    //    this->notifyAll();
-
-    //    if (--this->resets_ == 0) {
-    //        this->slots_.clear();
-    //        this->entryGate_.release(int(this->count_));
-    //        this->broken_ = this->triggered_ = false; ++this->synch_;
-    //        this->count_ = 0;
-    //    }
-
-    //    if (timeout) {
-    //        throw TimeoutException();
-    //    } else if (shutdown) {
-    //        throw IllegalThreadStateException();
-    //    } else if (broken) {
-    //        throw BrokenBarrierException();
-    //    }
-
-    //    return t_rtn;
-    //}
 
     template <typename T, typename F> bool
     Rendezvous<T, F>::waitReset(const ACE_Time_Value * abstime)
     {
-        for (size_t synch = this->synch_; this->slots_.size();) try {
+        ACE_GUARD_REACTION(_mutex_type, mon, *this, DAF_THROW_EXCEPTION(LockFailureException));
 
-            ACE_GUARD_READTION(_mutex_type, mon, *this, DAF_THROW_EXCEPTION(LockFailureException));
+        for (int synch = this->synch_;;) try {
 
-
-            if (this->synch_ == synch) {
+            if (this->interrupted()) {
+                DAF_THROW_EXCEPTION(InterruptedException);
+            }
+            else if (this->resets_ && this->synch_ == synch) {
                 if (this->triggered_ || this->broken_) {
                     this->broadcast();
                 }
-                else if (this->wait(abstime)) {
-                    this->broken_ = true;
-                    this->broadcast();
+                if (this->wait(abstime)) {
+                    int last_error = DAF_OS::last_error();
+                    {
+                        ACE_Errno_Guard g(errno); ACE_UNUSED_ARG(g);
+
+                        switch (this->interrupted() ? EINTR : last_error) {
+                        case EINTR: DAF_THROW_EXCEPTION(InterruptedException);
+                        }
+
+                        this->broken_ = true; this->broadcast();
+                    }
                     return false;
                 }
             } else break;
 
         } catch (...) { // JB: Deliberate catch(...) - DON'T replace with DAF_CATCH_ALL
-            this->broken_ = true; this->broadcast(); throw;
+            ACE_Errno_Guard g(errno); ACE_UNUSED_ARG(g);
+            this->broken_ = true;
+            this->broadcast();
+            throw;
         }
 
         return true;
     }
+
+    /*********************************************************************************************/
+
+    //template <typename T, typename F>
+    //Rendezvous<T, F>::RendezvousSemaphore::RendezvousSemaphore(int permits) : Semaphore(permits)
+    //{
+    //}
+
+    //template <typename T, typename F>
+    //Rendezvous<T, F>::RendezvousSemaphore::~RendezvousSemaphore(void)
+    //{
+    //    this->interrupt();
+    //}
+
+    //template <typename T, typename F> int
+    //Rendezvous<T, F>::RendezvousSemaphore::parties(void) const
+    //{
+    //    return this->parties_;
+    //}
+
+    //template <typename T, typename F> int
+    //Rendezvous<T, F>::RendezvousSemaphore::acquire(const ACE_Time_Value * abstime)
+    //{
+    //    int index = int(this->parties_ - this->permits());
+
+    //    if (Semaphore::acquire(abstime)) {
+    //        switch (this->interrupted() ? EINTR : DAF_OS::last_error()) {
+    //        case EINTR: DAF_THROW_EXCEPTION(InterruptedException);
+    //        case ETIME: DAF_THROW_EXCEPTION(TimeoutException);
+    //        default:    DAF_THROW_EXCEPTION(BrokenBarrierException);
+    //        }
+    //    }
+
+    //    return index;
+    //}
+
+    //template <typename T, typename F> int
+    //Rendezvous<T, F>::RendezvousSemaphore::release(void)
+    //{
+    //    Semaphore::release(); return int(this->parties_ - this->permits());
+    //}
+
 
 } // namespace DAF
 

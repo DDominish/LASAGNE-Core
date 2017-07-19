@@ -40,7 +40,7 @@ namespace test
     bool debug = false;
     const char *TEST_NAME = "RendezvousTest";
 
-    struct TestRendFunc
+    struct TestRendFunc : DAF::RendezvousCommand<int>
     {
         int value;
         bool ran;

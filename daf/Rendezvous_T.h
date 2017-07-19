@@ -42,6 +42,9 @@ namespace DAF
   */
     template <typename T>
     struct RendezvousCommand : std::unary_function< std::vector<T>, void> {
+        typedef std::unary_function< std::vector<T>, void>  function_type;
+        typedef typename function_type::argument_type       argument_type;
+        typedef typename function_type::result_type         result_type;
         virtual typename result_type operator () (typename argument_type &) {
             /* Do Nothing */
         }
@@ -90,15 +93,17 @@ namespace DAF
 
     public:
 
-        typedef T                               _value_type;
-        typedef typename F::argument_type       _slots_type;
+        typedef T   _value_type;
+        typedef F   _function_type;
+
+        typedef typename _function_type::argument_type  _slots_type;
 
         typedef typename Monitor::_mutex_type   _monitor_type;
 
         /**
         * Create a Barrier for the indicated number of parties,
         */
-        Rendezvous(int parties);
+        Rendezvous(int parties, _function_type & function);
 
         /** \todo{Fill this in} */
         virtual ~Rendezvous(void);
@@ -107,7 +112,7 @@ namespace DAF
         bool    broken(void) const;
 
         /** \todo{Fill this in} */
-        size_t  parties(void) const;
+        int     parties(void) const;
 
         /**
         * Wait msecs to complete a rendezvous.
@@ -151,10 +156,17 @@ namespace DAF
 
     private:
 
-        Semaphore       entryGate_;
-        int             parties_, synch_, count_, resets_;
-        bool            broken_, triggered_;
-        _slots_type     slots_;
+        Semaphore           rendezvousSemaphore_;
+
+        _slots_type         rendezvousSlots_;
+        _function_type &    rendezvousFunction_;
+
+    private:
+
+        int         parties_, count_, resets_, synch_;
+
+        bool        broken_;
+        bool        triggered_;
     };
 
     template <typename T, typename F>
@@ -200,7 +212,7 @@ namespace DAF
     */
     template <typename T>
     struct RendezvousRotator : RendezvousCommand<T> {
-        virtual result_type operator () (argument_type &val);
+        virtual typename result_type operator () (typename argument_type & val);
     };
 
 } // namespace DAF
