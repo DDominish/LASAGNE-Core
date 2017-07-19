@@ -58,7 +58,7 @@ namespace DAF
     template <typename T, typename F> int
     Rendezvous<T, F>::interrupt(void)
     {
-        return Motitor::interrupt() + this->rendezvousSemaphore_.interrupt() ? -1 : 0;
+        return Monitor::interrupt() + this->rendezvousSemaphore_.interrupt() ? -1 : 0;
     }
 
     template <typename T, typename F> bool
@@ -86,7 +86,9 @@ namespace DAF
             }
         }
 
-        int index = this->resets_ = ++this->count_; this->rendezvousSlots_[--index] = t; // Put value into container at our index
+        int index = this->count_++; this->resets_ = this->count_;
+
+        this->rendezvousSlots_.push_back(t); // Put value into container at end
 
         for (;;) try {
 
@@ -101,6 +103,7 @@ namespace DAF
                 T t_rtn = this->rendezvousSlots_[index];
 
                 if (--this->count_ == 0) {
+                    this->rendezvousSlots_.clear();
                     this->broken_ = this->triggered_ = false;
                     this->rendezvousSemaphore_.release(this->resets_); this->resets_ = 0;
                     ++this->synch_; this->broadcast();
@@ -127,6 +130,7 @@ namespace DAF
             ACE_Errno_Guard g(errno); ACE_UNUSED_ARG(g);
             this->broken_ = true;
             if (--this->count_ == 0) {
+                this->rendezvousSlots_.clear();
                 this->broken_ = this->triggered_ = false;
                 this->rendezvousSemaphore_.release(this->resets_); this->resets_ = 0;
                 ++this->synch_;
