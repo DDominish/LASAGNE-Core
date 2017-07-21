@@ -42,9 +42,6 @@ namespace DAF
   */
     template <typename T>
     struct RendezvousCommand : std::unary_function< std::vector<T>, void> {
-        typedef std::unary_function< std::vector<T>, void>  function_type;
-        typedef typename function_type::argument_type       argument_type;
-        typedef typename function_type::result_type         result_type;
         virtual typename result_type operator () (typename argument_type &) {
             /* Do Nothing */
         }
