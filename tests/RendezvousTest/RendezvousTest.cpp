@@ -90,6 +90,7 @@ namespace test
        RendezvousTest_t &rend;
        int id;
        int broken;
+       int interrupted;
        int illegal;
        int unknown;
        int timeout;
@@ -102,6 +103,7 @@ namespace test
        , rend(theRend)
        , id(idi)
        , broken(0)
+       , interrupted(0)
        , illegal(0)
        , unknown(0)
        , timeout(0)
@@ -111,6 +113,8 @@ namespace test
        , sema(sema_in)
        { }
 
+       DAF_DEFINE_REFCOUNTABLE(TestRendezvous);
+
        virtual int run(void)
        {
            if ( delay_msec ) DAF_OS::sleep(ACE_Time_Value(0, suseconds_t(delay_msec)));
@@ -118,28 +122,38 @@ namespace test
            if ( debug ) ACE_DEBUG((LM_INFO, "(%P|%t) %T 0x%08X Entering Rendezvous %d\n", this, this->id));
 
            try {
+
                sema.release();
-               if (this->msec == 0 )
-                  result = this->rend.rendezvous(this->id);
-               else
-                  result = this->rend.rendezvous(this->id, this->msec);
+
+               if (this->msec == 0) {
+                   result = this->rend.rendezvous(this->id);
+               }
+               else {
+                   result = this->rend.rendezvous(this->id, this->msec);
+               }
+
            } catch ( const DAF::BrokenBarrierException &e) {
-                this->broken++;
+                ++this->broken;
                 if (debug) ACE_DEBUG((LM_ERROR, ACE_TEXT("(%P|%t) %T - 0x%08X Broken on Rend %s\n"), this,  e.what()));
-            } catch (const DAF::TimeoutException &te ) {
-                this->timeout++;
-                if (debug) ACE_DEBUG((LM_ERROR, ACE_TEXT("(%P|%t) %T - 0x%08X Timeout on Rend %s\n"), this, te.what()));
-            } catch ( const DAF::IllegalThreadStateException &te ) {
-                this->illegal++;
-                if(debug) ACE_DEBUG((LM_ERROR, ACE_TEXT("(%P|%t) %T - 0x%08X IllegalThreadState on Rend %s\n"), this, te.what()));
+            } catch (const DAF::TimeoutException &e ) {
+                ++this->timeout;
+                if (debug) ACE_DEBUG((LM_ERROR, ACE_TEXT("(%P|%t) %T - 0x%08X Timeout on Rend %s\n"), this, e.what()));
+            } catch ( const DAF::InterruptedException &e ) {
+                ++this->interrupted;
+                if(debug) ACE_DEBUG((LM_ERROR, ACE_TEXT("(%P|%t) %T - 0x%08X Interrupted on Rend %s\n"), this, e.what()));
+            } catch (const std::exception &e) {
+                ++this->illegal;
+                if (debug) ACE_DEBUG((LM_ERROR, ACE_TEXT("(%P|%t) %T - 0x%08X Interrupted on Rend %s\n"), this, e.what()));
             } DAF_CATCH_ALL {
-                this->unknown++;
+                ++this->unknown;
                 if(debug) ACE_DEBUG((LM_ERROR, ACE_TEXT("(%P|%t) %T - Unknown Exception on Rend\n")));
             }
 
            return 0;
        }
     };
+
+    DAF_DECLARE_REFCOUNTABLE(TestRendezvous);
 
     struct TestRotator : DAF::Runnable
     {
@@ -152,6 +166,8 @@ namespace test
       , id(idin)
       , result(0)
       { }
+
+      DAF_DEFINE_REFCOUNTABLE(TestRotator);
 
       virtual int run(void)
        {
@@ -172,6 +188,8 @@ namespace test
            return 0;
        }
     };
+
+    DAF_DECLARE_REFCOUNTABLE(TestRotator);
 
 
 
@@ -214,7 +232,7 @@ namespace test
             try {
                 // Want this one to work after a period of time.
                 // TODO
-                clean = rend.waitReset(1000);
+                clean = rend.wait(1000);
 
                 result &= !rend.broken() && clean;
 
@@ -272,7 +290,7 @@ namespace test
             try {
                 // Want this one to work after a period of time.
                 // TODO
-                clean = rend.waitReset(1000);
+                clean = rend.wait(1000);
 
                 result &= rend.broken() && !clean;
 
@@ -328,7 +346,10 @@ namespace test
 
 
             try {
-                clean = rend.waitReset();
+                clean = rend.wait(1000);
+                if (clean && DAF_OS::last_error() == ETIME) {
+                    rend.interrupt();
+                }
 
                 result &= rend.broken() && !clean;
 
@@ -386,7 +407,7 @@ namespace test
             blocker.acquire();
             blocker.acquire();
 
-            result = rend.waitReset(100) && !rend.broken();
+            result = rend.wait(100) && !rend.broken();
 
             DAF_OS::thr_yield();
         }
@@ -419,15 +440,16 @@ namespace test
             DAF::TaskExecutor executor;
             RendezvousTest_t rend(2, functor);
 
-            DAF::Runnable_ref timeout = new TestRendezvous(counter, 1, rend, 100);
+            TestRendezvous_ref timeout = new TestRendezvous(counter, 1, rend, 100);
 
             for ( int i = 0; i < threadCount; ++i )
             {
                 executor.execute(timeout);
-                DAF_OS::sleep(ACE_Time_Value(0, 500000));
             }
 
-            value = reinterpret_cast<TestRendezvous*>(timeout.ptr())->timeout;
+            DAF_OS::sleep(1);
+
+            value = timeout->timeout + timeout->broken; // Threads may have detected that it is now broken also
         }
 
         result = (value == expected);
