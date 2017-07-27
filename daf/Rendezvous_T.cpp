@@ -41,17 +41,25 @@ namespace DAF
     Rendezvous<T,F>::Rendezvous(int parties, _function_type & function) : Monitor()
         , rendezvousSemaphore_  (ace_max(0, parties))
         , rendezvousFunction_   (function)
+        , rendezvousActive_     (0)
         , parties_              (0)
         , count_                (0)
-        , resets_               (0)
         , broken_               (false)
         , triggered_            (false)
-
     {
-        if ((this->parties_ = this->rendezvousSemaphore_.permits()) != 0) {
-            this->rendezvousSlots_.reserve(this->parties_ + 2); return; // Reserve enough space for manipulation (+2)
+        if ((this->parties_ = this->rendezvousSemaphore_.permits()) == 0) {
+            DAF_THROW_EXCEPTION(InitializationException);
         }
-        DAF_THROW_EXCEPTION(InitializationException);
+        this->rendezvousSlots_.reserve(this->parties_ + 2); // Reserve enough space for manipulation (+2)
+    }
+
+    template <typename T, typename F>
+    Rendezvous<T, F>::~Rendezvous(void)
+    {
+        this->interrupt();
+        for (ACE_Guard<_mutex_type> mon(*this); this->count_ > 0;) {
+            Monitor::wait(); // Wait for threads to exit
+        }
     }
 
     template <typename T, typename F> int
@@ -77,15 +85,25 @@ namespace DAF
     {
         ACE_GUARD_REACTION(_mutex_type, mon, *this, DAF_THROW_EXCEPTION(LockFailureException));
 
-        if (this->rendezvousSemaphore_.acquire(abstime)) {
-            switch (this->interrupted() ? EINTR : DAF_OS::last_error()) {
-            case EINTR: DAF_THROW_EXCEPTION(InterruptedException);
-            case ETIME: DAF_THROW_EXCEPTION(TimeoutException);
-            default:    DAF_THROW_EXCEPTION(InternalException);
+        if (this->interrupted()) {
+            DAF_THROW_EXCEPTION(InterruptedException);
+        }
+        else if ((this->triggered_ || this->broken_) ? false : this->rendezvousSemaphore_.permits() > 0) {
+            if (this->interrupted() ? DAF_OS::last_error(EINTR) : this->rendezvousSemaphore_.acquire(abstime)) {
+                switch (DAF_OS::last_error()) {
+                case EINTR: DAF_THROW_EXCEPTION(InterruptedException);
+                case ETIME: DAF_THROW_EXCEPTION(TimeoutException);
+                default:    DAF_THROW_EXCEPTION(InternalException);
+                }
             }
+        }
+        else {
+            DAF_THROW_EXCEPTION(IllegalStateException);
         }
 
         int index = this->count_++; this->rendezvousSlots_.push_back(t); // Put value into container at end
+
+        ++this->rendezvousActive_; // Count our activity
 
         for (;;) try {
 
@@ -100,7 +118,7 @@ namespace DAF
                 T t_rtn = this->rendezvousSlots_[index];
 
                 if (--this->count_ == 0) {
-                    this->rendezvousSlots_.clear(); ++this->resets_; this->broadcast();
+                    this->rendezvousSlots_.clear(); this->broadcast();
                 }
 
                 return t_rtn;
@@ -111,17 +129,19 @@ namespace DAF
                     case EINTR: continue;
                     case ETIME:
 
-                        if (this->triggered_) {
+                        if (this->broken_ || this->triggered_) {
                             continue;
                         }
 
                         DAF_THROW_EXCEPTION(TimeoutException);
 
-                    default:    this->broken_ = true; this->broadcast();
+                    default:
+                        this->broken_ = true;
+                        this->broadcast();
                     }
                 }
             }
-            else {
+            else if (this->triggered_ ? false : true) {
                 this->rendezvousFunction_(this->rendezvousSlots_);
                 this->triggered_ = true;
                 this->broadcast();
@@ -131,7 +151,7 @@ namespace DAF
             ACE_Errno_Guard g(errno); ACE_UNUSED_ARG(g);
             this->broken_ = true;
             if (--this->count_ == 0) {
-                this->rendezvousSlots_.clear(); ++this->resets_;
+                this->rendezvousSlots_.clear();
             }
             this->broadcast();
             throw;
@@ -141,31 +161,23 @@ namespace DAF
     template <typename T, typename F> int
     Rendezvous<T, F>::wait(const ACE_Time_Value * abstime) const
     {
-        int resets = this->resets_;
+        ACE_GUARD_REACTION(_mutex_type, mon, *this, DAF_THROW_EXCEPTION(LockFailureException));
 
-        for(;;) {
+        while (this->rendezvousActive_ ? this->count_ > 0 : true) {
 
-            ACE_GUARD_REACTION(_mutex_type, mon, *this, DAF_THROW_EXCEPTION(LockFailureException));
-
-            if (resets == this->resets_ || this->count_ > 0) {
-
-                if (Monitor::wait(abstime)) {
-
-                    switch (this->interrupted() ? EINTR : DAF_OS::last_error()) {
-                    case EINTR: DAF_THROW_EXCEPTION(InterruptedException);
-                    case ETIME:
-                        if (resets == this->resets_ || this->count_ > 0) {
-                            return -1;
-                        }
-
-                        return 0; // Rendezvous has completed even if with timeout.
-
-                    default: return -1; // Just return with errno
+            if (this->interrupted() || Monitor::wait(abstime)) {
+                switch (this->interrupted() ? DAF_OS::last_error(EINTR) : DAF_OS::last_error()) {
+                case ETIME:
+                    if (this->rendezvousActive_ && 0 >= this->count_) {
+                        return 0;
                     }
+
+                    // Fall through
+
+                default: return -1; // Just return with errno
                 }
             }
-            else return 0;
-        } 
+        }
 
         return 0;
     }

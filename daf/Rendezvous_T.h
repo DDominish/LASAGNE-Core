@@ -161,18 +161,13 @@ namespace DAF
 
     private:
 
-        int         parties_, count_, resets_;
+        int     rendezvousActive_;
 
-        bool        broken_;
-        bool        triggered_;
+        int     parties_;
+        int     count_;
+        bool    broken_;
+        bool    triggered_;
     };
-
-    template <typename T, typename F>
-    inline
-    Rendezvous<T,F>::~Rendezvous(void)
-    {
-        this->interrupt();
-    }
 
     template <typename T, typename F>
     inline T

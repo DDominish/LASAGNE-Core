@@ -35,6 +35,8 @@
  *
  */
 
+const int WILD_INITIAL_VALUE = 26857;
+
 namespace test
 {
     bool debug = false;
@@ -58,20 +60,24 @@ namespace test
             }
         };
 
-        void operator()( std::vector<int> &v)
+        void operator()(std::vector<int> &v)
         {
             ran = true;
-            if (debug) ACE_DEBUG((LM_INFO, "(%P|%t) %T 0x%08X Running Rendezvous Functor\n", this));
+            if (debug) { ACE_DEBUG((LM_INFO, "(%P|%t) %T 0x%08X Running Rendezvous Functor\n", this)); }
             DAF_OS::sleep(this->delay);
-            if (debug) ACE_DEBUG((LM_INFO, "(%P|%t) %T 0x%08X Executing Rendezvous Functor\n", this));
+            if (debug) { ACE_DEBUG((LM_INFO, "(%P|%t) %T 0x%08X Executing Rendezvous Functor\n", this)); }
 
             for ( size_t i = 0 ; i < v.size(); i++ )
             {
-               if ( debug) std::cout << i << ":" << v[i] << std::endl;
+                if (debug) {
+                    std::cout << i << ":" << v[i] << std::endl;
+                }
 
                value += v[i];
             }
-            if (debug) std::cout << "sum " << value << std::endl;
+            if (debug) {
+                std::cout << "sum " << value << std::endl;
+            }
 
             //InnerFunctor inner(this->value);
             //std::for_each(v.begin(), v.end(), inner);
@@ -94,6 +100,7 @@ namespace test
        int illegal;
        int unknown;
        int timeout;
+       int returned;
        time_t msec;
        int result;
        time_t delay_msec;
@@ -107,49 +114,77 @@ namespace test
        , illegal(0)
        , unknown(0)
        , timeout(0)
+       , returned(0)
        , msec(mseci)
        , result(0)
        , delay_msec(delay_mseci)
        , sema(sema_in)
        { }
 
+       ~TestRendezvous(void)
+       {
+           if (debug) {
+               ACE_DEBUG((LM_DEBUG, ACE_TEXT("(%P|%t) 0x%@ broken=%d,interrupted=%d,timeout=%d,illegal=%d,unknown=%d,returned=%d\n"), this
+                   , this->broken
+                   , this->interrupted
+                   , this->timeout
+                   , this->illegal
+                   , this->unknown
+                   , this->returned
+                   ));
+           }
+       }
+
        DAF_DEFINE_REFCOUNTABLE(TestRendezvous);
 
        virtual int run(void)
        {
-           if ( delay_msec ) DAF_OS::sleep(ACE_Time_Value(0, suseconds_t(delay_msec)));
+            int rtnval = 0, error = 0;
 
-           if ( debug ) ACE_DEBUG((LM_INFO, "(%P|%t) %T 0x%08X Entering Rendezvous %d\n", this, this->id));
-
-           try {
-
-               sema.release();
-
-               if (this->msec == 0) {
-                   result = this->rend.rendezvous(this->id);
-               }
-               else {
-                   result = this->rend.rendezvous(this->id, this->msec);
-               }
-
-           } catch ( const DAF::BrokenBarrierException &e) {
-                ++this->broken;
-                if (debug) ACE_DEBUG((LM_ERROR, ACE_TEXT("(%P|%t) %T - 0x%08X Broken on Rend %s\n"), this,  e.what()));
-            } catch (const DAF::TimeoutException &e ) {
-                ++this->timeout;
-                if (debug) ACE_DEBUG((LM_ERROR, ACE_TEXT("(%P|%t) %T - 0x%08X Timeout on Rend %s\n"), this, e.what()));
-            } catch ( const DAF::InterruptedException &e ) {
-                ++this->interrupted;
-                if(debug) ACE_DEBUG((LM_ERROR, ACE_TEXT("(%P|%t) %T - 0x%08X Interrupted on Rend %s\n"), this, e.what()));
-            } catch (const std::exception &e) {
-                ++this->illegal;
-                if (debug) ACE_DEBUG((LM_ERROR, ACE_TEXT("(%P|%t) %T - 0x%08X Interrupted on Rend %s\n"), this, e.what()));
-            } DAF_CATCH_ALL {
-                ++this->unknown;
-                if(debug) ACE_DEBUG((LM_ERROR, ACE_TEXT("(%P|%t) %T - Unknown Exception on Rend\n")));
+            if (delay_msec) {
+                DAF_OS::sleep(ACE_Time_Value(0, suseconds_t(delay_msec * 1000)));
             }
 
-           return 0;
+            if (debug) {
+                ACE_DEBUG((LM_INFO, ACE_TEXT("(%P|%t)\t%T 0x%@ Entering Rendezvous %d\n"), this, this->id));
+            }
+
+            try {
+
+                sema.release();
+
+                if (this->msec == 0) {
+                    result = rtnval = this->rend.rendezvous(this->id);
+                }
+                else {
+                    result = rtnval = this->rend.rendezvous(this->id, this->msec);
+                }
+
+                ++returned; return 0;
+            }
+            catch (const DAF::BrokenBarrierException &e) {
+                ++this->broken;
+                if (debug) { ACE_DEBUG((LM_ERROR, ACE_TEXT("(%P|%t) %T - 0x%08X Broken on Rend %s\n"), this, e.what())); }
+            }
+            catch (const DAF::TimeoutException &e ) {
+                ++this->timeout;
+                if (debug) { ACE_DEBUG((LM_ERROR, ACE_TEXT("(%P|%t) %T - 0x%08X Timeout on Rend %s\n"), this, e.what())); }
+            }
+            catch (const DAF::InterruptedException &e) {
+                ++this->interrupted;
+                if (debug) { ACE_DEBUG((LM_ERROR, ACE_TEXT("(%P|%t) %T - 0x%08X Interrupted on Rend %s\n"), this, e.what())); }
+            }
+            catch (const std::exception &e) {
+                ++this->illegal;
+                if (debug) { ACE_DEBUG((LM_ERROR, ACE_TEXT("(%P|%t) %T - 0x%08X Interrupted on Rend %s\n"), this, e.what())); }
+            }
+            catch (...) {
+                ++this->unknown;
+                if (debug) { ACE_DEBUG((LM_ERROR, ACE_TEXT("(%P|%t) %T - Unknown Exception on Rend\n"))); }
+                throw;
+            }
+
+            return 0;
        }
     };
 
@@ -206,47 +241,37 @@ namespace test
     int test_RendezvousWaitResetTimeoutClean(int threadCount)
     {
         ACE_UNUSED_ARG(threadCount);
-        int result = 1;
-        int expected = 0;
-        int value = 0;
-        bool clean  = false;
 
-        DAF::Semaphore counter(0);
-        TestRendFunc functor;
+        int expected = 2, value = WILD_INITIAL_VALUE;
 
-        RendezvousTest_t rend(2, functor);
-        TestRendezvous *tester = new TestRendezvous(counter, 1, rend);
-
-        DAF::Runnable_ref runner(tester);
+        DAF::Semaphore  blocker(0);
+        TestRendFunc    functor;
 
         {
-            DAF::TaskExecutor executor;
+            RendezvousTest_t    rend(2, functor);
+            TestRendezvous_ref  tester(new TestRendezvous(blocker, 1, rend));
+            TestRendezvous_ref  player(new TestRendezvous(blocker, 2, rend, 0, 100)); // Test actor
 
-            executor.execute(runner);
-            executor.execute(new TestRendezvous(counter, 2, rend, 0, 100));
+            {
+                DAF::TaskExecutor executor;
 
-            counter.acquire();
-            counter.acquire();
+                executor.execute(tester);   blocker.acquire();
+                executor.execute(player);   blocker.acquire();
 
+                if (rend.wait(100) || rend.broken()) {
+                    ACE_ERROR_RETURN((LM_ERROR, ACE_TEXT("(%P|%t) ERROR: %C should have observed a clean competion, but did not!\n"), __FUNCTION__), 0);
+                }
+                else if (functor.ran ? false : true) {
+                    ACE_ERROR_RETURN((LM_ERROR, ACE_TEXT("(%P|%t) ERROR: %C Functor should have run, but did not!\n"), __FUNCTION__), 0);
+                }
 
-            try {
-                // Want this one to work after a period of time.
-                // TODO
-                clean = rend.wait(1000);
-
-                result &= !rend.broken() && clean;
-
-                if(debug) ACE_DEBUG((LM_DEBUG, "(%P|%t) %T - Clean Wait %s %d\n", (clean ? "YES" : "NO"), result));
-            } catch( const DAF::IllegalThreadStateException &te) {
-                if(debug) ACE_DEBUG((LM_DEBUG, "(%P|%t) %T - Got Illegal State? %s\n", te.what()));
-                result = 0;
+                DAF_OS::thr_yield();
             }
-            DAF_OS::thr_yield();
+
+            value = tester->returned + player->returned;
         }
 
-        value = tester->broken;
-
-        result &= (value == expected) && functor.ran;
+        int result = (value == expected);
 
         std::cout << __FUNCTION__ <<  " Expected " << expected << " result " << value << " " << (result ? "OK" : "FAILED" ) << std::endl;
 
@@ -266,45 +291,37 @@ namespace test
     int test_RendezvousWaitResetTimeout(int threadCount)
     {
         ACE_UNUSED_ARG(threadCount);
-        int result = 1;
-        int expected = 1;
-        int value = 0;
-        bool clean  = false;
+
+        int expected = 1, value = WILD_INITIAL_VALUE;
 
         TestRendFunc functor;
-        DAF::Semaphore counter(0);
+        DAF::Semaphore blocker(0);
 
-        RendezvousTest_t rend(2, functor);
-        TestRendezvous *tester = new TestRendezvous(counter, 1, rend);
+        {  // Scope rend for destructor
 
-        DAF::Runnable_ref runner(tester);
+            RendezvousTest_t rend(2, functor);
+            TestRendezvous_ref tester = new TestRendezvous(blocker, 1, rend);
 
-        {
-            DAF::TaskExecutor executor;
+            {
+                DAF::TaskExecutor executor;
 
-            executor.execute(runner);
+                executor.execute(tester); blocker.acquire();
 
-            counter.acquire();
-
-
-            try {
                 // Want this one to work after a period of time.
-                // TODO
-                clean = rend.wait(1000);
+                if (rend.wait(100) && DAF_OS::last_error() == ETIME) {
+                    if (functor.ran ? true : false) {
+                        ACE_ERROR_RETURN((LM_ERROR, ACE_TEXT("(%P|%t) ERROR: %C Functor should not have run, but did!\n"), __FUNCTION__),0);
+                    }
+                    value = rend.broken() ? WILD_INITIAL_VALUE : 0; // Ensure we are not broken on timeout
+                }
 
-                result &= rend.broken() && !clean;
-
-                if(debug) ACE_DEBUG((LM_DEBUG, "(%P|%t) %T - Clean Wait %s %d\n", (clean ? "YES" : "NO"), result));
-            } catch( const DAF::IllegalThreadStateException &te) {
-                if(debug) ACE_DEBUG((LM_DEBUG, "(%P|%t) %T - Got Illegal State? %s\n", te.what()));
-                result = 0;
+                DAF_OS::thr_yield();
             }
-            DAF_OS::thr_yield();
+
+            value += rend.broken() ? tester->unknown : 0; // Should now be broken after clobber with an unknown (abi)
         }
 
-        value = tester->broken;
-
-        result &= (value == expected) && !functor.ran;
+        int result = (value == expected);
 
         std::cout << __FUNCTION__ <<  " Expected " << expected << " result " << value << " " << (result ? "OK" : "FAILED" ) << std::endl;
 
@@ -324,46 +341,37 @@ namespace test
     int test_RendezvousWaitResetHard(int threadCount)
     {
         ACE_UNUSED_ARG(threadCount);
-        int result = 1;
-        int expected = 1;
-        int value = 0;
-        bool clean  = false;
 
-        DAF::Semaphore counter(0);
+        int expected = 1, value = WILD_INITIAL_VALUE;
+
+        DAF::Semaphore blocker(0);
         TestRendFunc functor;
 
-        RendezvousTest_t rend(expected*2, functor);
-        TestRendezvous *tester = new TestRendezvous(counter, 1, rend);
+        { // Scope rend
 
-        DAF::Runnable_ref runner(tester);
+            RendezvousTest_t    rend(expected * 2, functor);
+            TestRendezvous_ref  tester(new TestRendezvous(blocker, 1, rend));
 
-        {
-            DAF::TaskExecutor executor;
+            {
+                DAF::TaskExecutor executor;
 
-            executor.execute(runner);
+                executor.execute(tester); blocker.acquire();
 
-            counter.acquire();
-
-
-            try {
-                clean = rend.wait(1000);
-                if (clean && DAF_OS::last_error() == ETIME) {
-                    rend.interrupt();
+                if (rend.wait(100) && DAF_OS::last_error() == ETIME) {
+                    rend.interrupt(); value = 0;
                 }
 
-                result &= rend.broken() && !clean;
-
-                if(debug) ACE_DEBUG((LM_DEBUG, "(%P|%t) %T - Clean Wait %s\n", (clean ? "YES" : "NO")));
-            } catch( const DAF::IllegalThreadStateException &te) {
-                if(debug) ACE_DEBUG((LM_DEBUG, "(%P|%t) %T - Got Illegal State? %s\n", te.what()));
-                result = 0;
+                DAF_OS::thr_yield();
             }
-            DAF_OS::thr_yield();
+
+            if (functor.ran) {
+                ACE_ERROR_RETURN((LM_ERROR, ACE_TEXT("(%P|%t) ERROR: %C Functor should not have run, but did!\n"), __FUNCTION__), 0);
+            }
+
+            value += rend.broken() ? tester->interrupted : 0;
         }
 
-        value = tester->broken;
-
-        result &= (value == expected) && !functor.ran;
+        int result = (value == expected);
 
         std::cout << __FUNCTION__ <<  " Expected " << expected << " result " << value << " " << (result ? "OK" : "FAILED" ) << std::endl;
 
@@ -385,36 +393,37 @@ namespace test
     int test_RendezvousWaitResetClean(int threadCount)
     {
         ACE_UNUSED_ARG(threadCount);
-        int result = 1;
-        int expected = 0;
-        int value = 0;
-        //bool clean  = false;
+
+        int expected = 2, value = WILD_INITIAL_VALUE;
 
         DAF::Semaphore blocker(0);
         TestRendFunc functor;
 
-        RendezvousTest_t rend(2, functor);
-        TestRendezvous *tester = new TestRendezvous(blocker, 1, rend);
+        { // scope rend
 
-        DAF::Runnable_ref runner(tester);
+            RendezvousTest_t    rend(2, functor);
+            TestRendezvous_ref  tester(new TestRendezvous(blocker, 1, rend));
 
-        {
-            DAF::TaskExecutor executor;
+            {
+                DAF::TaskExecutor executor;
 
-            executor.execute(runner);
-            executor.execute(runner);
+                executor.execute(tester); blocker.acquire();
+                executor.execute(tester); blocker.acquire();
 
-            blocker.acquire();
-            blocker.acquire();
+                if (rend.wait(100) || rend.broken()) {
+                    ACE_ERROR_RETURN((LM_ERROR, ACE_TEXT("(%P|%t) ERROR: %C should have observed a clean competion, but did not!\n"), __FUNCTION__), 0);
+                }
+                else if (functor.ran ? false : true) {
+                    ACE_ERROR_RETURN((LM_ERROR, ACE_TEXT("(%P|%t) ERROR: %C Functor should have run, but did not!\n"), __FUNCTION__), 0);
+                }
 
-            result = rend.wait(100) && !rend.broken();
+                DAF_OS::thr_yield();
+            }
 
-            DAF_OS::thr_yield();
+            value = tester->returned;
         }
 
-        value = tester->broken;
-
-        result &= (value == expected) && functor.ran;
+        int result = (value == expected);
 
         std::cout << __FUNCTION__ <<  " Expected " << expected << " result " << value << " " << (result ? "OK" : "FAILED" ) << std::endl;
 
@@ -425,36 +434,86 @@ namespace test
      * TEST
      *
      * Testing the rendezvous(value, timeout) functionality
-     * and making sure the Timeout condition is set.
+     * and making sure the Rendezvous condition is set before timeout 
+     *
+     * NOTE: We have 1 too many for the rendezvous so count the gate crasher as illegal.
      */
-    int test_RendezvousTimeout(int threadCount)
+    int test_RendezvousTimeoutBroken(int threadCount)
     {
-        int result = 0;
-        int expected = threadCount;
-        int value = 0;
+        int expected = threadCount - 1, value = WILD_INITIAL_VALUE;
 
-        DAF::Semaphore counter(0);
+        DAF::Semaphore blocker(0);
         TestRendFunc functor;
 
         {
-            DAF::TaskExecutor executor;
-            RendezvousTest_t rend(2, functor);
+            RendezvousTest_t    rend(threadCount, functor);
+            TestRendezvous_ref  tester(new TestRendezvous(blocker, 6, rend, 100));
 
-            TestRendezvous_ref timeout = new TestRendezvous(counter, 1, rend, 100);
-
-            for ( int i = 0; i < threadCount; ++i )
             {
-                executor.execute(timeout);
+                DAF::TaskExecutor executor;
+
+                for (int i = 1; i < threadCount; ++i)
+                {
+                    executor.execute(tester); blocker.acquire();
+                }
+
+                DAF_OS::sleep(1);
+
+                if (tester->timeout == 1) {  // One timeout
+                    value = tester->timeout + tester->broken; // The rest broken
+                }
+
+                DAF_OS::thr_yield();
             }
-
-            DAF_OS::sleep(1);
-
-            value = timeout->timeout + timeout->broken; // Threads may have detected that it is now broken also
         }
 
-        result = (value == expected);
+        int result = (value == expected);
 
         std::cout << __FUNCTION__ <<  " Expected " << expected << " result " << value << " " << (result ? "OK" : "FAILED" ) << std::endl;
+
+        return result;
+    }
+
+    /**
+    * TEST
+    *
+    * Testing the rendezvous(value, timeout) functionality
+    * and making sure the Rendezvous condition is set before timeout
+    *
+    * NOTE: We have 1 too many for the rendezvous so count the gate crasher as illegal.
+    */
+    int test_RendezvousTimeoutIllegal(int threadCount)
+    {
+        int expected = threadCount, value = WILD_INITIAL_VALUE;
+
+        DAF::Semaphore blocker(0);
+        TestRendFunc functor;
+
+        {
+            RendezvousTest_t    rend(threadCount - 1, functor);
+            TestRendezvous_ref  tester(new TestRendezvous(blocker, 6, rend, 100));
+
+            {
+                DAF::TaskExecutor executor;
+
+                for (int i = 0; i < threadCount; ++i)
+                {
+                    executor.execute(tester); blocker.acquire();
+                }
+
+                DAF_OS::sleep(1);
+
+                if (tester->illegal == 1) {  // One too many for rendezvous (illegal)
+                    value = tester->illegal + tester->returned;
+                }
+
+                DAF_OS::thr_yield();
+            }
+        }
+
+        int result = (value == expected);
+
+        std::cout << __FUNCTION__ << " Expected " << expected << " result " << value << " " << (result ? "OK" : "FAILED") << std::endl;
 
         return result;
     }
@@ -468,29 +527,33 @@ namespace test
     int test_RendezvousBroken(int threadCount)
     {
         ACE_UNUSED_ARG(threadCount);
-        int result = 0;
-        int expected =1;
-        int value = 0 ;
 
-        DAF::Semaphore counter(0);
+        int expected = 1, value = WILD_INITIAL_VALUE;
+
+        DAF::Semaphore blocker(0);
         TestRendFunc functor;
 
         {
-            DAF::TaskExecutor executor;
-            RendezvousTest_t rend(3, functor);
+            RendezvousTest_t    rend(3, functor);
+            TestRendezvous_ref  tester(new TestRendezvous(blocker, 2, rend, 500));
 
-            DAF::Runnable_ref breaker = new TestRendezvous(counter, 2, rend, 500);
+            {
+                DAF::TaskExecutor executor;
 
-            executor.execute(breaker);
+                executor.execute(tester); blocker.acquire();
 
-            try {
-                rend.rendezvous(value);
-            } catch (const DAF::BrokenBarrierException ) {
-                value++;
+                try {
+                    rend.rendezvous(value);
+                }
+                catch (const DAF::BrokenBarrierException &) {
+                    value = tester->timeout;
+                }
+
+                DAF_OS::thr_yield();
             }
         }
 
-        result = (value == expected);
+        int result = (value == expected);
 
         std::cout << __FUNCTION__ <<  " Expected " << expected << " result " << value << " " << (result ? "OK" : "FAILED" ) << std::endl;
 
@@ -508,27 +571,35 @@ namespace test
     int test_RendezvousRotator(int threadCount)
     {
         ACE_UNUSED_ARG(threadCount);
-        int result = 0;
-        int expected = 10;
+
+        int expected = 10, value = WILD_INITIAL_VALUE;
+
         const int rotateValue = 20;
-        int value = 0;
+
         DAF::RendezvousRotator<int> rotator;
 
-        DAF::Rendezvous<int> rend(2,rotator);
-
-        TestRotator *test1 = new TestRotator(rend,expected);
-
-        DAF::Runnable_ref runner1(test1);
-
         {
-            DAF::TaskExecutor executor;
 
-            executor.execute(runner1);
+            DAF::Rendezvous<int> rend(2, rotator);
+            TestRotator_ref tester(new TestRotator(rend, expected));
 
-            value = rend.rendezvous(rotateValue);
+            {
+                DAF::TaskExecutor executor;
+
+                executor.execute(tester);
+
+                if (rend.rendezvous(rotateValue) == expected) {
+                    if (tester->result == rotateValue) {
+                        value = expected; // We pass
+                    }
+                }
+
+                DAF_OS::thr_yield();
+            }
+
         }
 
-        result = (test1->result == rotateValue) && (value  == expected);
+        int result = (value == expected);
 
         std::cout << __FUNCTION__ <<  " Expected " << expected << " result " << value << " " << (result ? "OK" : "FAILED" ) << std::endl;
 
@@ -545,29 +616,31 @@ namespace test
      */
     int test_RendezvousBasicWorking(int threadCount)
     {
-        int result = 0;
-        int expected = 1;
-        int value = 0;
+        int expected = 1, value = WILD_INITIAL_VALUE;
+
+        DAF::Semaphore blocker(0);
         TestRendFunc functor;
 
-        DAF::Semaphore counter(0);
-
         {
-            DAF::TaskExecutor executor;
-
-            RendezvousTest_t rendez(threadCount+1, functor);
-            for(int i = 0; i < threadCount; ++i )
+            RendezvousTest_t rend(threadCount + 1, functor);
             {
-                executor.execute(new TestRendezvous(counter, i+1, rendez));
-                expected += i + 1;
+                DAF::TaskExecutor executor;
+
+                for (int i = 0; i < threadCount; ++i)
+                {
+                    executor.execute(new TestRendezvous(blocker, i + 1, rend));
+                    expected += i + 1;
+                }
+
+                rend.rendezvous(1);
+
+                DAF_OS::thr_yield();
             }
 
-            rendez.rendezvous(1);
-            DAF_OS::sleep(ACE_Time_Value(0, 500));
+            value = functor.value;
         }
 
-        value = functor.value;
-        result = (value == expected);
+        int result = (value == expected);
 
         std::cout << __FUNCTION__ <<  " Expected " << expected << " result " << value << " " << (result ? "OK" : "FAILED" ) << std::endl;
 
@@ -583,46 +656,39 @@ namespace test
      */
     int test_RendezvousDestruction(int threadCount)
     {
-        std::cout << __FUNCTION__ ;
-
-        int result = 0;
-        int expected = 1;
-        int value = 0;
-        TestRendFunc functor;
+        int expected = 1, value = WILD_INITIAL_VALUE;
 
         DAF::Semaphore blocker(0);
-
-        RendezvousTest_t *rend = new RendezvousTest_t(threadCount+2, functor);
-
-        TestRendezvous *tester = new TestRendezvous(blocker, 1, *rend);
-
-        DAF::Runnable_ref runner(tester);
+        TestRendFunc functor;
 
         {
-            DAF::TaskExecutor executor;
+            RendezvousTest_t *  rend = new RendezvousTest_t(threadCount + 2, functor);
+            TestRendezvous_ref  tester(new TestRendezvous(blocker, 1, *rend));
 
-            executor.execute(runner);
-            for( int i =1; i < threadCount; ++i )
             {
-                executor.execute(new TestRendezvous(blocker, i+1, *rend));
+                DAF::TaskExecutor executor;
+
+                executor.execute(tester); blocker.acquire();
+
+                for (int i = 1; i < threadCount; ++i)
+                {
+                    executor.execute(new TestRendezvous(blocker, i + 1, *rend)); blocker.acquire();
+                }
+
+                // Deliberately Destroy the Rendezvous
+                // to make sure the destruction process doesn't deadlock.
+
+                delete rend;
+
+                DAF_OS::thr_yield();
             }
 
-            for( int i =0; i < threadCount; ++i )
-            {
-                blocker.acquire();
-            }
-
-
-            // Deliberately Destroy the Rendezvous
-            // to make sure the destruction process doesn't deadlock.
-            delete rend;
-            DAF_OS::thr_yield();
+            value = tester->interrupted + tester->broken;
         }
 
-        value = tester->illegal + tester->broken;
-        result = (value == expected);
+        int result = (value == expected);
 
-        std::cout <<  " Expected " << expected << " result " << value << " " << (result ? "OK" : "FAILED" ) << std::endl;
+        std::cout << __FUNCTION__ <<  " Expected " << expected << " result " << value << " " << (result ? "OK" : "FAILED" ) << std::endl;
 
         return result;
     }
@@ -642,47 +708,37 @@ namespace test
      */
     int test_RendezvousDestructionLongTrigger(int threadCount)
     {
-        std::cout << __FUNCTION__ ;
+        int expected = 1, value = WILD_INITIAL_VALUE;
 
-        int result = 0;
-        int expected = 1;
-        int value = expected;
-        const ACE_Time_Value triggerDelay(1,0);
-        TestRendFunc functor(triggerDelay);
-
-        DAF::Semaphore blocker(0);
-
-        RendezvousTest_t *rend = new RendezvousTest_t(threadCount, functor);
+        DAF::Semaphore  blocker(0);
+        TestRendFunc    functor(ACE_Time_Value(1));
 
         {
-            DAF::TaskExecutor executor;
+            RendezvousTest_t *rend = new RendezvousTest_t(threadCount, functor);
 
-            // Add more than the trigger amount to the rendezvous.
-            // This ensures that we have a full set of waiters on the trigger.
-            // And a set of waiters on the entryGate.
-            for( int i =1; i < threadCount*2; ++i )
             {
-                executor.execute(new TestRendezvous(blocker, i+1, *rend));
+                DAF::TaskExecutor executor;
+
+                // Add more than the trigger amount to the rendezvous.
+                // This ensures that we have a full set of waiters on the trigger.
+                for (int i = 1; i < threadCount; ++i)
+                {
+                    executor.execute(new TestRendezvous(blocker, i, *rend)); blocker.acquire();
+                }
+
+                // Deliberately Destroy the Rendezvous
+                // to make sure the destruction process doesn't deadlock.
+                delete rend;
+
+                DAF_OS::thr_yield();
             }
 
-            // Wait for the executor to catch up.
-            for( int i = 1; i < threadCount*2; ++i)
-            {
-                blocker.acquire();
-            }
-
-            // Deliberately Destroy the Rendezvous
-            // to make sure the destruction process doesn't deadlock.
-            delete rend;
-            DAF_OS::thr_yield();
+            value = expected; // TODO Test Condition? - If it got here it didn't deadlock ?
         }
 
-        // TODO Test Condition? - If it got here it didn't deadlock ?
-        // Just always pass
+        int result = (value == expected);
 
-        result = (value == expected);
-
-        std::cout <<  " Expected " << expected << " result " << value << " " << (result ? "OK" : "FAILED" ) << std::endl;
+        std::cout << __FUNCTION__ <<  " Expected " << expected << " result " << value << " " << (result ? "OK" : "FAILED" ) << std::endl;
 
         return result;
     }
@@ -703,27 +759,25 @@ namespace test
     int test_RendezvousCtorZero(int threadCount)
     {
         ACE_UNUSED_ARG(threadCount);
-        std::cout << __FUNCTION__ ;
 
-        int result = 0;
-        int expected = 1;
-        int value = 0;
-
-        TestRendFunc functor;
+        int expected = 1, value = WILD_INITIAL_VALUE;
 
         try {
-            RendezvousTest_t rendez(0, functor);
-            DAF::TaskExecutor executor;
-            rendez.rendezvous(1,100);
-        } catch (const DAF::InitializationException & ) {
+            RendezvousTest_t(0, TestRendFunc()).rendezvous(1,100);
+        }
+        catch (const DAF::InitializationException &) {
             value = 1;
-        } catch (const DAF::TimeoutException & ) {
+        }
+        catch (const DAF::TimeoutException &) {
             value = 2;
         }
+        catch (const std::exception &) {
+            value = 3;
+        }
 
-        result = (value == expected);
+        int result = (value == expected);
 
-        std::cout <<  " Expected " << expected << " result " << value << " " << (result ? "OK" : "FAILED" ) << std::endl;
+        std::cout << __FUNCTION__ <<  " Expected " << expected << " result " << value << " " << (result ? "OK" : "FAILED" ) << std::endl;
 
         return result;
     }
@@ -738,50 +792,48 @@ namespace test
     int test_RendezvousThreadKill(int threadCount)
     {
         ACE_UNUSED_ARG(threadCount);
-        int result = 1;
-        int expected = 1;
-        int value = 0;
 
-        DAF::Semaphore counter(0);
-        TestRendFunc functor;
+        int expected = 1, value = WILD_INITIAL_VALUE;
 
-        RendezvousTest_t rend(threadCount+2, functor);
-        TestRendezvous *tester = new TestRendezvous(counter, 1, rend);
+        DAF::Semaphore  blocker(0);
+        TestRendFunc    functor;
 
-        DAF::Runnable_ref runner(tester);
+        do {
+            RendezvousTest_t    rend(threadCount + 2, functor);
+            TestRendezvous_ref  tester(new TestRendezvous(blocker, 1, rend));
 
-        {
-            DAF::TaskExecutor executor;
-            DAF::TaskExecutor *kill_executor = new DAF::TaskExecutor;
-
-            executor.execute(runner);
-            for( int i =1; i < threadCount; ++i )
             {
-                executor.execute(new TestRendezvous(counter, i+1, rend));
+                DAF::TaskExecutor executor;
+                DAF::TaskExecutor *kill_executor = new DAF::TaskExecutor;
+
+                executor.execute(tester); blocker.acquire();
+
+                for (int i = 1; i < threadCount; ++i)
+                {
+                    executor.execute(new TestRendezvous(blocker, i + 1, rend)); blocker.acquire();
+                }
+
+                DAF_OS::sleep(1);
+
+                kill_executor->execute(new TestRendezvous(blocker, threadCount + 1, rend)); blocker.acquire();
+
+                if (debug) { ACE_DEBUG((LM_INFO, "(%P|%t) %T - Killing Executor\n")); }
+
+                delete kill_executor;
+
+                DAF_OS::thr_yield();
             }
 
-            // Wait for the executor to catch up.
-            for( int i = 0; i < threadCount; ++i)
-            {
-                counter.acquire();
+            if (functor.ran) {
+                ACE_ERROR_RETURN((LM_ERROR, ACE_TEXT("(%P|%t) ERROR: %C should not have run, but did!\n"), __FUNCTION__), 0);
             }
 
-            kill_executor->execute(new TestRendezvous(counter, threadCount+1, rend));
-            counter.acquire();
+            value = tester->broken;
 
-            if (debug) ACE_DEBUG((LM_INFO, "(%P|%t) %T - Killing Executor\n"));
-
-            delete kill_executor;
-
-            DAF_OS::thr_yield();
-            //result &= rend.broken();
+        } while (false);
 
 
-        }
-
-        value = tester->broken;
-
-        result &= (value == expected) && !functor.ran;
+        int result = (value == expected);
 
         std::cout << __FUNCTION__ <<  " Expected " << expected << " result " << value << " " << (result ? "OK" : "FAILED" ) << std::endl;
 
@@ -802,6 +854,8 @@ void print_usage(const ACE_Get_Opt &cli_opt)
 
 int main(int argc, char *argv[])
 {
+    ACE_DEBUG((LM_INFO, ACE_TEXT("(%P|%t) %T - %C\n"), test::TEST_NAME));
+
     int result = 1, threadCount = 3;
 
     ACE_Get_Opt cli_opt(argc, argv, "hzn:");
@@ -816,10 +870,9 @@ int main(int argc, char *argv[])
         case 'n': threadCount = DAF_OS::atoi(cli_opt.opt_arg());
     }
 
-    std::cout << test::TEST_NAME << std::endl;
-
     result &= test::test_RendezvousBasicWorking(threadCount);
-    result &= test::test_RendezvousTimeout(threadCount);
+    result &= test::test_RendezvousTimeoutBroken(threadCount);
+    result &= test::test_RendezvousTimeoutIllegal(threadCount);
     result &= test::test_RendezvousBroken(threadCount);
     result &= test::test_RendezvousRotator(threadCount);
     result &= test::test_RendezvousWaitResetClean(threadCount);
@@ -828,11 +881,8 @@ int main(int argc, char *argv[])
     result &= test::test_RendezvousWaitResetHard(threadCount);
     result &= test::test_RendezvousDestruction(threadCount);
     result &= test::test_RendezvousDestructionLongTrigger(threadCount);
-
     result &= test::test_RendezvousCtorZero(threadCount);
-#if 1 //ndef ACE_WIN32
     result &= test::test_RendezvousThreadKill(threadCount);
-#endif
 
     return !result;
 }
