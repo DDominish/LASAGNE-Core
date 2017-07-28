@@ -258,7 +258,7 @@ namespace test
                 executor.execute(tester);   blocker.acquire();
                 executor.execute(player);   blocker.acquire();
 
-                if (rend.wait(100) || rend.broken()) {
+                if (rend.waitReset(100) || rend.broken()) {
                     ACE_ERROR_RETURN((LM_ERROR, ACE_TEXT("(%P|%t) ERROR: %C should have observed a clean competion, but did not!\n"), __FUNCTION__), 0);
                 }
                 else if (functor.ran ? false : true) {
@@ -308,7 +308,7 @@ namespace test
                 executor.execute(tester); blocker.acquire();
 
                 // Want this one to work after a period of time.
-                if (rend.wait(100) && DAF_OS::last_error() == ETIME) {
+                if (rend.waitReset(100) && DAF_OS::last_error() == ETIME) {
                     if (functor.ran ? true : false) {
                         ACE_ERROR_RETURN((LM_ERROR, ACE_TEXT("(%P|%t) ERROR: %C Functor should not have run, but did!\n"), __FUNCTION__),0);
                     }
@@ -357,7 +357,7 @@ namespace test
 
                 executor.execute(tester); blocker.acquire();
 
-                if (rend.wait(100) && DAF_OS::last_error() == ETIME) {
+                if (rend.waitReset(100) && DAF_OS::last_error() == ETIME) {
                     rend.interrupt(); value = 0;
                 }
 
@@ -410,7 +410,7 @@ namespace test
                 executor.execute(tester); blocker.acquire();
                 executor.execute(tester); blocker.acquire();
 
-                if (rend.wait(100) || rend.broken()) {
+                if (rend.waitReset(100) || rend.broken()) {
                     ACE_ERROR_RETURN((LM_ERROR, ACE_TEXT("(%P|%t) ERROR: %C should have observed a clean competion, but did not!\n"), __FUNCTION__), 0);
                 }
                 else if (functor.ran ? false : true) {
@@ -436,11 +436,11 @@ namespace test
      * Testing the rendezvous(value, timeout) functionality
      * and making sure the Rendezvous condition is set before timeout 
      *
-     * NOTE: We have 1 too many for the rendezvous so count the gate crasher as illegal.
+     * NOTE: We have 1 too little for the rendezvous
      */
     int test_RendezvousTimeoutBroken(int threadCount)
     {
-        int expected = threadCount - 1, value = WILD_INITIAL_VALUE;
+        int expected = threadCount, value = WILD_INITIAL_VALUE;
 
         DAF::Semaphore blocker(0);
         TestRendFunc functor;
@@ -459,9 +459,7 @@ namespace test
 
                 DAF_OS::sleep(1);
 
-                if (tester->timeout == 1) {  // One timeout
-                    value = tester->timeout + tester->broken; // The rest broken
-                }
+                value = tester->timeout + tester->broken;
 
                 DAF_OS::thr_yield();
             }
@@ -480,7 +478,7 @@ namespace test
     * Testing the rendezvous(value, timeout) functionality
     * and making sure the Rendezvous condition is set before timeout
     *
-    * NOTE: We have 1 too many for the rendezvous so count the gate crasher as illegal.
+    * NOTE: We have 1 too many for the rendezvous.
     */
     int test_RendezvousTimeoutIllegal(int threadCount)
     {
@@ -503,9 +501,7 @@ namespace test
 
                 DAF_OS::sleep(1);
 
-                if (tester->illegal == 1) {  // One too many for rendezvous (illegal)
-                    value = tester->illegal + tester->returned;
-                }
+                value = tester->timeout + tester->broken;
 
                 DAF_OS::thr_yield();
             }

@@ -137,20 +137,25 @@ namespace DAF
 
         /**
         * Wait For the Rendezvous to complete its transaction after an exchange
-        * and all the treads have exited or
+        * and all the treads have exited.
         * @return indicates <code>true</code> if the rendezvous was reset
         * ie all threads exited, <code>false</code> if an error occured.
         * Upon a Timeout occuring this will set the state to broken
         * and notify all existing waiters.
         */
-        int wait(const ACE_Time_Value * abstime = 0) const;
-        int wait(const ACE_Time_Value & abstime) const;
-        int wait(time_t msecs) const;
+        int waitReset(const ACE_Time_Value * abstime = 0);
+        int waitReset(const ACE_Time_Value & abstime);
+        int waitReset(time_t msecs);
 
+        /** Interrupt the monitor and the entry semaphore */
         int     interrupt(void);
 
         using Monitor::waiters;
         using Monitor::interrupted;
+
+    private:
+
+        int resetRendezvous(void); // Internal method called with monitor locked
 
     private:
 
@@ -161,9 +166,8 @@ namespace DAF
 
     private:
 
-        int     rendezvousActive_;
-
         int     parties_;
+        int     resets_;
         int     count_;
         bool    broken_;
         bool    triggered_;
@@ -185,16 +189,16 @@ namespace DAF
 
     template <typename T, typename F>
     inline int
-    Rendezvous<T, F>::wait(const ACE_Time_Value & abstime) const
+    Rendezvous<T, F>::waitReset(const ACE_Time_Value & abstime)
     {
-        return this->wait(&abstime);
+        return this->waitReset(&abstime);
     }
 
     template <typename T, typename F>
     inline int
-    Rendezvous<T, F>::wait(time_t msecs) const
+    Rendezvous<T, F>::waitReset(time_t msecs)
     {
-        return this->wait(DAF_OS::gettimeofday(ace_max(msecs, time_t(0))));
+        return this->waitReset(DAF_OS::gettimeofday(ace_max(msecs, time_t(0))));
     }
 
    /** @struct RendezvousRotator
