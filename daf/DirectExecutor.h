@@ -3,7 +3,7 @@
     Department of Defence,
     Australian Government
 
-	This file is part of LASAGNE.
+    This file is part of LASAGNE.
 
     LASAGNE is free software: you can redistribute it and/or modify
     it under the terms of the GNU Lesser General Public License as
@@ -21,18 +21,6 @@
 #ifndef DAF_DIRECTEXECUTOR_H
 #define DAF_DIRECTEXECUTOR_H
 
-/**
-
-*
-* @file     DirectExecutor.h
-* @author   Derek Dominish
-* @author   $LastChangedBy$
-* @date     1st September 2011
-* @version  $Revision$
-* @ingroup
-* @namespace DAF
-*/
-
 #include "Executor.h"
 
 namespace DAF
@@ -47,12 +35,12 @@ namespace DAF
      * ATTRIBUTION: Doug Lee Based On 'Concurrency Patterns in Java'
      * \ingroup executor
      */
-    struct DAF_Export DirectExecutor : DAF::Executor {
-
-        virtual int execute(const DAF::Runnable_ref &command) {
+    struct DAF_Export DirectExecutor : Executor {
+        virtual int execute(const Runnable_ref & command) {
             return (DAF::is_nil(command) ? 0 : command->run());
         }
     };
+
 } // namespace DAF
 
 #endif
