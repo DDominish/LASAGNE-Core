@@ -24,6 +24,8 @@
 #include "Monitor.h"
 #include "Semaphore.h"
 
+#include <ace/Min_Max.h>
+
 #include <vector>
 #include <algorithm>
 

@@ -23,8 +23,6 @@
 
 #include "Rendezvous_T.h"
 
-#include <ace/Min_Max.h>
-
 namespace DAF
 {
     template <typename T> typename RendezvousCommand<T>::result_type
@@ -58,7 +56,7 @@ namespace DAF
     {
         this->interrupt(); ACE_GUARD(_mutex_type, mon,*this);
         for (const ACE_Time_Value tv(DAF_OS::gettimeofday(DAF_MSECS_ONE_SECOND)); this->count_ > 0;) {
-            if (Monitor::wait(tv) && DAF_OS::last_error() == ETIME) { // Wait for threads to exit
+            if (this->wait(tv) && DAF_OS::last_error() == ETIME) { // Wait for threads to exit
                 break;
             }
         }
@@ -139,7 +137,7 @@ namespace DAF
                 return t_rtn;
             }
             else if (this->rendezvousSemaphore_.permits() > 0) {
-                if (this->interrupted() || Monitor::wait(abstime)) {
+                if (this->interrupted() || this->wait(abstime)) {
                     switch (this->interrupted() ? DAF_OS::last_error(EINTR) : DAF_OS::last_error()) {
                     case EINTR: DAF_THROW_EXCEPTION(InterruptedException);
                     case ETIME:
@@ -188,7 +186,7 @@ namespace DAF
 
             for (ACE_Time_Value * abstimer = const_cast<ACE_Time_Value *>(abstime); resets == this->resets_;) {
                 if (this->count_ > 0) {
-                    if (this->interrupted() || Monitor::wait(abstimer)) {
+                    if (this->interrupted() || this->wait(abstimer)) {
                         switch (this->interrupted() ? EINTR : (last_error = DAF_OS::last_error())) {
                         case EINTR: DAF_THROW_EXCEPTION(InterruptedException);
                         default: this->broken_ = true; this->broadcast(); abstimer = 0; // Set infinate wait
