@@ -91,29 +91,28 @@ namespace DAF
     {
         int index = 0, resets = 0;
 
-        for (;;) { // Process entry gate
+        { // Process entry gate
 
             ACE_GUARD_REACTION(_mutex_type, mon, *this, DAF_THROW_EXCEPTION(LockFailureException));
 
             if (this->interrupted()) {
                 DAF_THROW_EXCEPTION(InterruptedException);
             }
-            else if ((this->triggered_ || this->broken_) ? false : this->rendezvousSemaphore_.permits() > 0) {
-                if (this->rendezvousSemaphore_.acquire(abstime)) {
-                    switch (this->interrupted() ? DAF_OS::last_error(EINTR) : DAF_OS::last_error()) {
-                    case EINTR: DAF_THROW_EXCEPTION(InterruptedException);
-                    case ETIME: DAF_THROW_EXCEPTION(TimeoutException);
-                    default:    DAF_THROW_EXCEPTION(IllegalStateException);
-                    }
+            else if (this->triggered_ || this->broken_ || 0 >= this->rendezvousSemaphore_.permits()) {
+                DAF_THROW_EXCEPTION(IllegalStateException);
+            }
+            else if (this->rendezvousSemaphore_.acquire(abstime)) {
+                switch (this->interrupted() ? DAF_OS::last_error(EINTR) : DAF_OS::last_error()) {
+                case EINTR: DAF_THROW_EXCEPTION(InterruptedException);
+                case ETIME: DAF_THROW_EXCEPTION(TimeoutException);
+                default:    DAF_THROW_EXCEPTION(IllegalStateException);
                 }
-
-                resets  = this->resets_;
-                index   = this->count_++;
-                this->rendezvousSlots_.push_back(t);
-                break;
             }
 
-            DAF_THROW_EXCEPTION(IllegalStateException);
+            resets  = this->resets_;
+            index   = this->count_++;
+
+            this->rendezvousSlots_.push_back(t);
         }
 
         for (;;) try {

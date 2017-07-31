@@ -30,8 +30,9 @@
 namespace DAF
 {
   /*
-   * Rendezvous (and Barriers) serve as synchronous points for groups of threads that
-   * must occasionally wait for each other to exchange instance specific information.
+   * Barriers serve as synchronous points for groups of threads that
+   * must occasionally wait for each other.  Barriers may support
+   * any of several methods that accomplish this synchronisation.
    */
 
   /** @class RendezvousCommand
@@ -41,14 +42,8 @@ namespace DAF
   * some other thread (or itself, if parties is 1).
   */
     template <typename T>
-    class RendezvousCommand : public std::unary_function< std::vector<T>, void>
-    {
-    public:
-        RendezvousCommand(void) {}
+    struct RendezvousCommand : std::unary_function< std::vector<T>, void> {
         virtual typename result_type operator () (typename argument_type &);
-    private:
-        ACE_UNIMPLEMENTED_FUNC(void operator = (const RendezvousCommand<T> &))
-        ACE_UNIMPLEMENTED_FUNC(RendezvousCommand(const RendezvousCommand<T> &))
     };
 
     /** @class Rendezvous
