@@ -333,8 +333,6 @@ int test_RendezvousWaitResetTimeout(int threadCount)
     */
 int test_RendezvousWaitResetHard(int threadCount)
 {
-    ACE_UNUSED_ARG(threadCount);
-
     int expected = 0, value = WILD_INITIAL_VALUE;
 
     DAF::Semaphore  blocker(0);
@@ -663,8 +661,7 @@ int test_RendezvousDestruction(int threadCount)
                 executor.execute(new TestRendezvous(blocker, i, *rend)); blocker.acquire();
             }
 
-            // Deliberately Destroy the Rendezvous
-            // to make sure the destruction process doesn't deadlock.
+            DAF_OS::sleep(1);
 
             delete rend; rend = 0;
 
@@ -747,10 +744,6 @@ int test_RendezvousThreadKill(int threadCount)
             kill_executor->execute(tester); blocker.acquire(); ++expected;
 
             DAF_OS::sleep(1);
-
-            if (debug) {
-                ACE_DEBUG((LM_INFO, "(%P|%t) %T - Killing Executor\n"));
-            }
 
             delete kill_executor; kill_executor = 0;
 
