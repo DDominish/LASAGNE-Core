@@ -101,23 +101,6 @@ namespace DAF
         void  setBarrierCommand(const Runnable_ref & command);
 
         /**
-        * Enter barrier and wait for the other parties()-1 threads.
-        * @return the arrival index: the number of other parties
-        * that were still waiting
-        * upon entry. This is a unique value from zero to parties()-1.
-        * If it is zero, then the current
-        * thread was the last party to hit barrier point
-        * and so was responsible for releasing the others.
-        * @exception BrokenBarrierException if any other thread
-        * in any previous or current barrier
-        * since either creation or the last <code>restart</code>
-        * operation left the barrier
-        * prematurely due to interruption or time-out. (If so,
-        * the <code>broken</code> status is also set.)
-        */
-        virtual int barrier(void);
-
-        /**
         * Enter barrier and wait at most msecs for the other parties()-1 threads.
         * @return if not timed out, the arrival index: the number of other parties
         * that were still waiting
