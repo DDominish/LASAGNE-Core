@@ -18,6 +18,7 @@
     You should have received a copy of the GNU Lesser General Public
     License along with LASAGNE.  If not, see <http://www.gnu.org/licenses/>.
 ***************************************************************/
+
 #include <daf/Barrier.h>
 #include <daf/TaskExecutor.h>
 
@@ -610,8 +611,7 @@ int test_BarrierDestruction(int threadCount)
                 executor.execute(tester); blocker.acquire(); ++expected;
             }
 
-            // Deliberately Destroy the Rendezvous
-            // to make sure the destruction process doesn't deadlock.
+            DAF_OS::sleep(1);
 
             delete barrier; barrier = 0;
 
@@ -693,11 +693,7 @@ int test_BarrierThreadKill(int threadCount)
 
             DAF_OS::sleep(1);
 
-            if (debug) {
-                ACE_DEBUG((LM_INFO, "(%P|%t) %T - Killing Executor\n"));
-            }
-
-            delete kill_executor;
+            delete kill_executor; kill_executor = 0;
 
             DAF_OS::thr_yield();
         }

@@ -21,7 +21,7 @@
 #ifndef DAF_BARRIER_H
 #define DAF_BARRIER_H
 
-#include "DAF.h"
+#include "Monitor.h"
 #include "Runnable.h"
 #include "Semaphore.h"
 
