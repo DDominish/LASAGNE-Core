@@ -514,6 +514,46 @@ namespace TAF {
             TAO::debug(DAF::get_numeric_property<int>(TAO_DEBUGGING, TAO::debug(), true));
             TAF::debug(DAF::get_numeric_property<int>(TAF_DEBUGGING, TAF::debug(), true));
 
+#if defined(DAF_HAS_WIN32_PRIORITY_CLASS) && (DAF_HAS_WIN32_PRIORITY_CLASS != 0)
+
+            do {
+
+                int new_prior = DAF::get_numeric_property<int>(DAF_BASEPRIORITY, 0, false);
+
+                switch (DAF_OS::sched_PRIORITY(long(new_prior))) {
+                case THREAD_PRIORITY_IDLE:              new_prior = IDLE_PRIORITY_CLASS;            break;
+                case THREAD_PRIORITY_LOWEST:            new_prior = BELOW_NORMAL_PRIORITY_CLASS;    break;
+                case THREAD_PRIORITY_BELOW_NORMAL:      new_prior = BELOW_NORMAL_PRIORITY_CLASS;    break;
+                case THREAD_PRIORITY_NORMAL:            new_prior = NORMAL_PRIORITY_CLASS;          break;
+                case THREAD_PRIORITY_ABOVE_NORMAL:      new_prior = ABOVE_NORMAL_PRIORITY_CLASS;    break;
+                case THREAD_PRIORITY_HIGHEST:           new_prior = HIGH_PRIORITY_CLASS;            break;
+# if defined(DAF_HAS_REALTIME_PRIORITY_CLASS) && (DAF_HAS_REALTIME_PRIORITY_CLASS != 0)
+                case THREAD_PRIORITY_TIME_CRITICAL:     new_prior = REALTIME_PRIORITY_CLASS;        break;
+# else
+                case THREAD_PRIORITY_TIME_CRITICAL:     new_prior = HIGH_PRIORITY_CLASS;            break;
+# endif // defined(DAF_HAS_REALTIME_PRIORITY_CLASS)
+                default: continue;
+                }
+
+                HANDLE pid = ::GetCurrentProcess();  // Get the current Process ID Handle (the windows way!)
+
+                for (int cur_prior = int(::GetPriorityClass(pid)); cur_prior;) {
+
+                    if (cur_prior != new_prior) {
+                        if (!::SetPriorityClass(pid, DWORD(new_prior)) && DAF::debug() > 1) {
+                            ACE_DEBUG((LM_WARNING, ACE_TEXT("TAF (%P | %t) WARNING: ORBManager; ")
+                                ACE_TEXT("Unable to change base priority to 0x%X from 0x%X; error=%d\n"),
+                                unsigned(new_prior), unsigned(cur_prior), DAF_OS::last_error()));
+                        }
+                    }
+
+                    break;
+                }
+
+            } while (false);
+
+#endif // defined(DAF_HAS_WIN32_PRIORITY_CLASS)
+
             this->set_orb_threads(DAF::get_numeric_property<size_t>(TAF_ORBTHREADS,  DEFAULT_ORBTHREADS));
 
             size_t ace_threads(DAF::get_numeric_property<size_t>(ACE_BASETHREADS, DEFAULT_ACETHREADS));

@@ -23,6 +23,8 @@
 
 #include "Constants.h"
 
+#include <ace/config.h>
+
 /********** Ensure Environment Validity ***********/
 
 #if !defined(ACE_ENABLE_SWAP_ON_WRITE) && (ACE_BYTE_ORDER == ACE_LITTLE_ENDIAN)
@@ -38,9 +40,22 @@
 #define DAF_UNUSED_STATIC(ID) \
 template <typename T> inline void ID ## _UNUSED(const T& = (ID)) {}
 
-/**** Make Windows behave like Linux when in cancellable event (ie wait/sleep) ***/
-
 #if defined(ACE_HAS_THREADS)
+
+// Setting the REALTIME_PRIORITY_CLASS to OS schedulers
+// is almost always a VERY BAD THING. This guard will allow people
+// to easily disable this priority class features in DAF.
+# define DAF_HAS_REALTIME_PRIORITY_CLASS        1
+// Setting the THREAD_PRIORITY_TIME_CRITICAL to OS schedulers
+// is almost always a VERY BAD THING. This guard will allow people
+// to easily disable this priority features in DAF.
+# define DAF_HAS_THREAD_PRIORITY_TIME_CRITICAL  1
+
+# if defined (ACE_WIN32) && defined(_WIN32_WINNT) && (_WIN32_WINNT >= _WIN32_WINNT_VISTA) 
+#  define DAF_HAS_WIN32_PRIORITY_CLASS  1
+# endif
+
+/**** Make Windows behave like Linux threads when in cancellable event (ie wait/sleep) ***/
 
 # if defined(ACE_LACKS_COND_T)
 #  define DAF_USES_COND_T_WAITERS

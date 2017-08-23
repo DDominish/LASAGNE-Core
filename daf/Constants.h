@@ -21,7 +21,7 @@
 #ifndef DAF_CONSTANTS_H
 #define DAF_CONSTANTS_H
 
-#include <ace/config.h>
+#include "DAF_export.h"
 
 /*************** ACE Conditional Support Checks ***************/
 
@@ -48,6 +48,8 @@
 #define ACE_DEBUGGING               ACE_TEXT("ACEDebug")
 // ACE Reactor Threads
 #define ACE_BASETHREADS             ACE_TEXT("ACEBaseThreads")
+
+#include <ace/Guard_T.h>
 
 #if !defined(ACE_READ_GUARD_ACTION)
 # define ACE_READ_GUARD_ACTION(MUTEX, OBJ, LOCK, ACTION, REACTION) \
@@ -87,6 +89,10 @@
 #define DAF_PROPERTIES              ACE_TEXT("DAFProperties")
 
 // Properties
+#define DAF_BASEPRIORITY            ACE_TEXT("DAFBasePriority")
+#define DAF_TASKTHREADPRIORITY      ACE_TEXT("DAFTaskThreadPriority")
+#define DAF_THREADPRIORITYENABLE    ACE_TEXT("DAFThreadPriorityEnable")
+
 #define DAF_HEXDUMPWIDTH            ACE_TEXT("DAFHexDumpWidth")
 #define DAF_TASKHANDOFFTIMEOUT      ACE_TEXT("DAFTaskHandoffTimeout")
 #define DAF_TASKEVICTTIMEOUT        ACE_TEXT("DAFTaskEvictTimeout")

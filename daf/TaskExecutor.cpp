@@ -250,6 +250,7 @@ namespace DAF
         , decay_timeout_    (THREAD_DECAY_TIMEOUT)
         , evict_timeout_    (THREAD_EVICT_TIMEOUT)
         , handoff_timeout_  (THREAD_HANDOFF_TIMEOUT)
+        , thread_priority_  (0)
         , executorAvailable_(true)
         , executorClosed_   (false)
     {
@@ -261,6 +262,8 @@ namespace DAF
         this->setEvictTimeout(evict_timeout * DAF_MSECS_ONE_SECOND);
         time_t handoff_timeout(DAF::get_numeric_property<time_t>(DAF_TASKHANDOFFTIMEOUT, time_t(THREAD_HANDOFF_TIMEOUT), true));
         this->setHandoffTimeout(handoff_timeout);
+
+        this->setThreadPriority(DAF::get_numeric_property<ACE_Sched_Priority>(DAF_TASKTHREADPRIORITY, 0, false));
     }
 
     TaskExecutor::~TaskExecutor(void)
@@ -366,7 +369,7 @@ namespace DAF
                             , TaskExecutor::threadExecute
                             , tp // Give the cmd to the thread (it will delete)
                             , flags
-                            , priority
+                            , long(DAF_OS::sched_PRIORITY(priority))
                             , this->grp_id()
                             , stack
                             , stack_size
@@ -379,7 +382,7 @@ namespace DAF
                             , TaskExecutor::threadExecute
                             , tp // Give the cmd to the thread (it will delete)
                             , flags
-                            , priority
+                            , long(DAF_OS::sched_PRIORITY(priority))
                             , this->grp_id()
                             , this
                             , thread_handles
@@ -442,7 +445,7 @@ namespace DAF
                 break;
             }
 
-            DAF_OS::thr_setprio(ACE_Sched_Priority(command->runPriority())); // Set the requested priority
+            DAF_OS::thr_setprio(DAF_OS::sched_PRIORITY(command->runPriority())); // Set the requested priority
 
             DAF_OS::last_error(ENOEXEC); this->svc(command._retn()); // Dispatch The Command
 
@@ -472,7 +475,7 @@ namespace DAF
                             , TaskExecutor::threadExecute
                             , tp // Give the cmd to the thread (it will delete)
                             , (THR_NEW_LWP | THR_JOINABLE | THR_INHERIT_SCHED)
-                            , ACE_DEFAULT_THREAD_PRIORITY
+                            , long(DAF_OS::sched_PRIORITY(this->getThreadPriority()))
                             , this->grp_id()
                             , this
                         );

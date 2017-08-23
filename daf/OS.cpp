@@ -21,6 +21,7 @@
 #define DAF_OS_CPP
 
 #include "OS.h"
+#include "PropertyManager.h"
 
 #include "TerminateRepository.h"
 
@@ -64,17 +65,36 @@ namespace DAF_OS
         return error;
     }
 
+    ACE_Sched_Priority  sched_PRIORITY(long priority)
+    {
+        if (DAF::get_numeric_property<bool>(DAF_THREADPRIORITYENABLE, true, false)) {
+
+#if defined(ACE_WIN32)
+            switch (int(priority)) {
+# if defined(DAF_HAS_THREAD_PRIORITY_TIME_CRITICAL)
+            case THREAD_PRIORITY_TIME_CRITICAL:
+# endif
+            case THREAD_PRIORITY_IDLE: return ACE_Sched_Priority(priority + ACE_DEFAULT_THREAD_PRIORITY);
+            }
+#endif // defined(ACE_WIN32)
+
+            return ACE_Sched_Priority(ace_range(-2, +2, int(priority)) + ACE_DEFAULT_THREAD_PRIORITY);
+        }
+
+        return ACE_Sched_Priority(ACE_DEFAULT_THREAD_PRIORITY);
+    }
+
     ACE_hthread_t   thread_HANDLE(void)
     {
         ACE_hthread_t thread_h; ACE_OS::thr_self(thread_h); return thread_h;
     }
 
-    long            thread_PRIORITY(ACE_hthread_t ht_id)
+    ACE_Sched_Priority  thread_PRIORITY(ACE_hthread_t ht_id)
     {
         int priority; if (ACE_OS::thr_getprio(ht_id, priority)) {
-            return long(ACE_DEFAULT_THREAD_PRIORITY);
+            return ACE_Sched_Priority(ACE_DEFAULT_THREAD_PRIORITY);
         }
-        return long(priority);
+        return ACE_Sched_Priority(priority);
     }
 
     const std::string & gethostname(void)

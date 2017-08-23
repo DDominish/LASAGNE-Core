@@ -45,7 +45,6 @@ namespace DAF
     {
         DAF_DEFINE_REFCOUNTABLE(Runnable);
 
-
         virtual ~Runnable(void) { /* force destruction */ }
 
         /**
@@ -60,7 +59,7 @@ namespace DAF
         */
         virtual long    runPriority(void) const
         {
-            return long(ACE_DEFAULT_THREAD_PRIORITY);
+            return long(0); // +/- value around ACE_DEFAULT_THREAD_PRIORITY which is an OS dependant value
         }
     };
 

@@ -19,6 +19,8 @@
 
 # if defined(_MSC_VER)
 
+#  include <sdkddkver.h>
+
 #  define ACE_USE_SELECT_REACTOR_FOR_REACTOR_IMPL 1
 #  define ACE_DISABLE_WIN32_ERROR_WINDOWS 1
 

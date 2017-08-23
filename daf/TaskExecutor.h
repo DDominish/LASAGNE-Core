@@ -222,6 +222,23 @@ namespace DAF
         }
 
         /**
+        * Set the default thread creation priority for task dispatch of all threads through
+        * <TaskExecutor::execute> before a new thread is force created.
+        */
+        void    setThreadPriority(int priority)
+        {
+            this->thread_priority_ = priority;
+        }
+
+        /**
+        * Accessor to the current default thread priority value +/- ACE_DEFAULT_THREAD_PRIORITY
+        */
+        int     getThreadPriority(void) const
+        {
+            return this->thread_priority_;
+        }
+
+        /**
         * Hook called during ACE_Module::close().  The default
         * implementation calls forwards the call to close(1).  Please
         * notice the changed value of the default argument of close().
@@ -368,9 +385,11 @@ namespace DAF
 
     private:
 
-        time_t  decay_timeout_;  // Decay Time for Threads      (milliseconds)
-        time_t  evict_timeout_;  // Time for closing threads    (milliseconds)
-        time_t  handoff_timeout_;// Time for handing off to existing threads before creating a new one (milliseconds)
+        time_t  decay_timeout_;     // Decay Time for Threads      (milliseconds)
+        time_t  evict_timeout_;     // Time for closing threads    (milliseconds)
+        time_t  handoff_timeout_;   // Time for handing off to existing threads before creating a new one (milliseconds)
+
+        int     thread_priority_;   // Default thread creation priority
 
         mutable bool    executorAvailable_;
         bool            executorClosed_;
