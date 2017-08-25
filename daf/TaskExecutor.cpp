@@ -263,7 +263,7 @@ namespace DAF
         time_t handoff_timeout(DAF::get_numeric_property<time_t>(DAF_TASKHANDOFFTIMEOUT, time_t(THREAD_HANDOFF_TIMEOUT), true));
         this->setHandoffTimeout(handoff_timeout);
 
-        this->dispatch_priority_ = DAF_OS::sched_PRIORITY(DAF::get_numeric_property<long>(DAF_THREADPRIORITY, 0, false), 0);
+        this->dispatch_priority_ = DAF_OS::sched_PRIORITY(DAF::get_numeric_property<long>(DAF_THREADPRIORITY, DAF_PRIORITY_NORMAL, false), 0);
     }
 
     TaskExecutor::~TaskExecutor(void)

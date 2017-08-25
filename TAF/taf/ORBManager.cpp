@@ -573,7 +573,7 @@ namespace TAF {
                 } while (false);
 
                 // Set the requested priority for the main thread from properties
-                DAF_OS::thr_setprio(DAF_OS::sched_PRIORITY(DAF::get_numeric_property<long>(DAF_THREADPRIORITY, 0, false)));
+                DAF_OS::thr_setprio(DAF_OS::sched_PRIORITY(DAF::get_numeric_property<long>(DAF_THREADPRIORITY, DAF_PRIORITY_NORMAL, false)));
             }
 
             this->set_orb_threads(DAF::get_numeric_property<size_t>(TAF_ORBTHREADS,  DEFAULT_ORBTHREADS));
