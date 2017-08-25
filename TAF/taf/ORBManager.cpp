@@ -61,6 +61,47 @@ namespace // Use Anonymous namespace
         return _tafORBName.c_str();
     }
 
+    int     setPriorityClass(long priority_class)
+    {
+#if defined(DAF_HAS_WIN32_PRIORITY_CLASS)
+
+        do {
+
+            switch (DAF_OS::sched_PRIORITY(priority_class, 0)) {
+            case THREAD_PRIORITY_IDLE:              priority_class = IDLE_PRIORITY_CLASS;           break;
+            case THREAD_PRIORITY_LOWEST:            priority_class = BELOW_NORMAL_PRIORITY_CLASS;   break;
+            case THREAD_PRIORITY_BELOW_NORMAL:      priority_class = BELOW_NORMAL_PRIORITY_CLASS;   break;
+            case THREAD_PRIORITY_NORMAL:            priority_class = NORMAL_PRIORITY_CLASS;         break;
+            case THREAD_PRIORITY_ABOVE_NORMAL:      priority_class = ABOVE_NORMAL_PRIORITY_CLASS;   break;
+            case THREAD_PRIORITY_HIGHEST:           priority_class = HIGH_PRIORITY_CLASS;           break;
+# if defined(DAF_HAS_REALTIME_PRIORITY_CLASS)
+            case THREAD_PRIORITY_TIME_CRITICAL:     priority_class = REALTIME_PRIORITY_CLASS;       break;
+# else
+            case THREAD_PRIORITY_TIME_CRITICAL:     priority_class = HIGH_PRIORITY_CLASS;           break;
+# endif // defined(DAF_HAS_REALTIME_PRIORITY_CLASS)
+            default: continue; // Skip Setting - Unknown Value
+            }
+
+            HANDLE pid = ::GetCurrentProcess();  // Use Windows Calls directly
+
+            for (DWORD current_class = ::GetPriorityClass(pid); current_class;) {
+
+                if (current_class == DWORD(priority_class)) {
+                    return 0;
+                }
+
+                return ::SetPriorityClass(pid, DWORD(priority_class)) ? 0 : -1;
+            }
+
+        } while (false);
+
+        return -1;  // We Had Some Error
+
+#endif // defined(DAF_HAS_WIN32_PRIORITY_CLASS)
+
+        ACE_UNUSED_ARG(priority_class); ACE_NOTSUP_RETURN(-1); // Not Supported
+    }
+
     /*******************************************************************************/
 
     TAF::NamingContext rootContext_, baseContext_;
@@ -514,45 +555,26 @@ namespace TAF {
             TAO::debug(DAF::get_numeric_property<int>(TAO_DEBUGGING, TAO::debug(), true));
             TAF::debug(DAF::get_numeric_property<int>(TAF_DEBUGGING, TAF::debug(), true));
 
-#if defined(DAF_HAS_WIN32_PRIORITY_CLASS) && (DAF_HAS_WIN32_PRIORITY_CLASS != 0)
+            // Set Up Process PriorityClass (windows Only for now) and main thread priority
+            if (DAF::get_numeric_property<bool>(DAF_PRIORITYCLASSENABLE, true, false)) {
 
-            do {
-
-                int new_prior = DAF::get_numeric_property<int>(DAF_BASEPRIORITY, 0, false);
-
-                switch (DAF_OS::sched_PRIORITY(long(new_prior))) {
-                case THREAD_PRIORITY_IDLE:              new_prior = IDLE_PRIORITY_CLASS;            break;
-                case THREAD_PRIORITY_LOWEST:            new_prior = BELOW_NORMAL_PRIORITY_CLASS;    break;
-                case THREAD_PRIORITY_BELOW_NORMAL:      new_prior = BELOW_NORMAL_PRIORITY_CLASS;    break;
-                case THREAD_PRIORITY_NORMAL:            new_prior = NORMAL_PRIORITY_CLASS;          break;
-                case THREAD_PRIORITY_ABOVE_NORMAL:      new_prior = ABOVE_NORMAL_PRIORITY_CLASS;    break;
-                case THREAD_PRIORITY_HIGHEST:           new_prior = HIGH_PRIORITY_CLASS;            break;
-# if defined(DAF_HAS_REALTIME_PRIORITY_CLASS) && (DAF_HAS_REALTIME_PRIORITY_CLASS != 0)
-                case THREAD_PRIORITY_TIME_CRITICAL:     new_prior = REALTIME_PRIORITY_CLASS;        break;
-# else
-                case THREAD_PRIORITY_TIME_CRITICAL:     new_prior = HIGH_PRIORITY_CLASS;            break;
-# endif // defined(DAF_HAS_REALTIME_PRIORITY_CLASS)
-                default: continue;
-                }
-
-                HANDLE pid = ::GetCurrentProcess();  // Get the current Process ID Handle (the windows way!)
-
-                for (int cur_prior = int(::GetPriorityClass(pid)); cur_prior;) {
-
-                    if (cur_prior != new_prior) {
-                        if (!::SetPriorityClass(pid, DWORD(new_prior)) && DAF::debug() > 1) {
-                            ACE_DEBUG((LM_WARNING, ACE_TEXT("TAF (%P | %t) WARNING: ORBManager; ")
-                                ACE_TEXT("Unable to change base priority to 0x%X from 0x%X; error=%d\n"),
-                                unsigned(new_prior), unsigned(cur_prior), DAF_OS::last_error()));
+                do {
+                    if (setPriorityClass(DAF::get_numeric_property<long>(DAF_PRIORITYCLASS, 0, false))) {
+                        int error = DAF_OS::last_error();
+                        switch (error) {
+                        case ENOTSUP: continue; // We skip any error if not supported
+                        default:
+                            if (DAF::debug()) {
+                                ACE_DEBUG((LM_WARNING, ACE_TEXT("(%P | %t) WARNING: ORBManager; ")
+                                    ACE_TEXT("Unable to set PriorityClass for process; error=%d - Ignored\n"), error));
+                            }
                         }
                     }
+                } while (false);
 
-                    break;
-                }
-
-            } while (false);
-
-#endif // defined(DAF_HAS_WIN32_PRIORITY_CLASS)
+                // Set the requested priority for the main thread from properties
+                DAF_OS::thr_setprio(DAF_OS::sched_PRIORITY(DAF::get_numeric_property<long>(DAF_THREADPRIORITY, 0, false)));
+            }
 
             this->set_orb_threads(DAF::get_numeric_property<size_t>(TAF_ORBTHREADS,  DEFAULT_ORBTHREADS));
 

@@ -26,6 +26,8 @@
 #include <ace/Object_Manager.h>
 #include <ace/High_Res_Timer.h>
 
+#include "Config.h"
+
 /*
     BEWARE:  Changed filename to 0_DAFInit.cpp to ensure first in linkage order under VC
     The anonymous namespace below defines a number of Global Variable "Loaders".
@@ -107,6 +109,6 @@ namespace { //anonymous
             ACE_High_Res_Timer::calibrate(250000);
         }
 
-    } DAFInit_;
+    } DAFInit_; DAF_UNUSED_STATIC(DAFInit_);
 
 } //namespace anonymous

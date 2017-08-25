@@ -65,23 +65,23 @@ namespace DAF_OS
         return error;
     }
 
-    ACE_Sched_Priority  sched_PRIORITY(long priority)
+    ACE_Sched_Priority  sched_PRIORITY(long priority_index, long priority_offset)
     {
         if (DAF::get_numeric_property<bool>(DAF_THREADPRIORITYENABLE, true, false)) {
 
 #if defined(ACE_WIN32)
-            switch (int(priority)) {
+            switch (int(priority_index)) {
 # if defined(DAF_HAS_THREAD_PRIORITY_TIME_CRITICAL)
             case THREAD_PRIORITY_TIME_CRITICAL:
 # endif
-            case THREAD_PRIORITY_IDLE: return ACE_Sched_Priority(priority + ACE_DEFAULT_THREAD_PRIORITY);
+            case THREAD_PRIORITY_IDLE: return ACE_Sched_Priority(priority_index + priority_offset);
             }
 #endif // defined(ACE_WIN32)
 
-            return ACE_Sched_Priority(ace_range(-2, +2, int(priority)) + ACE_DEFAULT_THREAD_PRIORITY);
+            return ACE_Sched_Priority(ace_range(-2, +2, int(priority_index)) + priority_offset);
         }
 
-        return ACE_Sched_Priority(ACE_DEFAULT_THREAD_PRIORITY);
+        return ACE_Sched_Priority(priority_offset);
     }
 
     ACE_hthread_t   thread_HANDLE(void)

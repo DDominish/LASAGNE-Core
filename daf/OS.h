@@ -85,7 +85,7 @@ namespace DAF_OS
     *
     *  Linux: Ignores @a priority (for now) and simply returns the OS dependant ACE_DEFAULT_THREAD_PRIORITY
     */
-    DAF_Export ACE_Sched_Priority   sched_PRIORITY(long priority);
+    DAF_Export ACE_Sched_Priority   sched_PRIORITY(long priority_index, long priority_offset = ACE_DEFAULT_THREAD_PRIORITY);
 
 #if defined (DAF_HAS_WAIT_FOR_TERMINATE_WTHREAD) && (DAF_HAS_WAIT_FOR_TERMINATE_WTHREAD > 0)
 

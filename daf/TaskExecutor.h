@@ -138,7 +138,7 @@ namespace DAF
         virtual int     execute(size_t  nthreads,
                                 bool    force_active = true,
                                 long    flags = (THR_NEW_LWP | THR_JOINABLE | THR_INHERIT_SCHED),
-                                long    priority = ACE_DEFAULT_THREAD_PRIORITY,
+                                long    priority = 0, // Use our index value
                                 ACE_hthread_t thread_handles[] = 0,
                                 void *  stack[] = 0,
                                 size_t  stack_size[] = 0,
@@ -222,20 +222,11 @@ namespace DAF
         }
 
         /**
-        * Set the default thread creation priority for task dispatch of all threads through
-        * <TaskExecutor::execute> before a new thread is force created.
-        */
-        void    setThreadPriority(int priority)
-        {
-            this->thread_priority_ = priority;
-        }
-
-        /**
         * Accessor to the current default thread priority value +/- ACE_DEFAULT_THREAD_PRIORITY
         */
-        int     getThreadPriority(void) const
+        long    getDispatchPriority(void) const
         {
-            return this->thread_priority_;
+            return this->dispatch_priority_;
         }
 
         /**
@@ -389,7 +380,7 @@ namespace DAF
         time_t  evict_timeout_;     // Time for closing threads    (milliseconds)
         time_t  handoff_timeout_;   // Time for handing off to existing threads before creating a new one (milliseconds)
 
-        int     thread_priority_;   // Default thread creation priority
+        long    dispatch_priority_; // Default thread dispatching priority
 
         mutable bool    executorAvailable_;
         bool            executorClosed_;

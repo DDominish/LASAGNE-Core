@@ -250,7 +250,7 @@ namespace DAF
         , decay_timeout_    (THREAD_DECAY_TIMEOUT)
         , evict_timeout_    (THREAD_EVICT_TIMEOUT)
         , handoff_timeout_  (THREAD_HANDOFF_TIMEOUT)
-        , thread_priority_  (0)
+        , dispatch_priority_(0)
         , executorAvailable_(true)
         , executorClosed_   (false)
     {
@@ -263,7 +263,7 @@ namespace DAF
         time_t handoff_timeout(DAF::get_numeric_property<time_t>(DAF_TASKHANDOFFTIMEOUT, time_t(THREAD_HANDOFF_TIMEOUT), true));
         this->setHandoffTimeout(handoff_timeout);
 
-        this->setThreadPriority(DAF::get_numeric_property<ACE_Sched_Priority>(DAF_TASKTHREADPRIORITY, 0, false));
+        this->dispatch_priority_ = DAF_OS::sched_PRIORITY(DAF::get_numeric_property<long>(DAF_THREADPRIORITY, 0, false), 0);
     }
 
     TaskExecutor::~TaskExecutor(void)
@@ -437,7 +437,7 @@ namespace DAF
     int
     TaskExecutor::task_dispatch(Runnable_ref command)
     {
-        for (const ACE_Sched_Priority default_prio(DAF_OS::thread_PRIORITY()); this->isAvailable();) {
+        while (this->isAvailable()) {
 
             if (DAF::is_nil(command)) try {
                 command = this->taskChannel_.poll(this->getDecayTimeout())._retn(); continue;
@@ -449,7 +449,7 @@ namespace DAF
 
             DAF_OS::last_error(ENOEXEC); this->svc(command._retn()); // Dispatch The Command
 
-            DAF_OS::thr_setprio(default_prio);  // Reset Priority
+            DAF_OS::thr_setprio(DAF_OS::sched_PRIORITY(this->getDispatchPriority()));  // Reset to Dispatch Priority
         }
 
         command = Runnable::_nil(); return 0;
@@ -475,7 +475,7 @@ namespace DAF
                             , TaskExecutor::threadExecute
                             , tp // Give the cmd to the thread (it will delete)
                             , (THR_NEW_LWP | THR_JOINABLE | THR_INHERIT_SCHED)
-                            , long(DAF_OS::sched_PRIORITY(this->getThreadPriority()))
+                            , long(DAF_OS::sched_PRIORITY(this->getDispatchPriority()))
                             , this->grp_id()
                             , this
                         );

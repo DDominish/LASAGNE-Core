@@ -89,8 +89,9 @@
 #define DAF_PROPERTIES              ACE_TEXT("DAFProperties")
 
 // Properties
-#define DAF_BASEPRIORITY            ACE_TEXT("DAFBasePriority")
-#define DAF_TASKTHREADPRIORITY      ACE_TEXT("DAFTaskThreadPriority")
+#define DAF_PRIORITYCLASS           ACE_TEXT("DAFPriorityClass")
+#define DAF_PRIORITYCLASSENABLE     ACE_TEXT("DAFPriorityClassEnable")
+#define DAF_THREADPRIORITY          ACE_TEXT("DAFThreadPriority")
 #define DAF_THREADPRIORITYENABLE    ACE_TEXT("DAFThreadPriorityEnable")
 
 #define DAF_HEXDUMPWIDTH            ACE_TEXT("DAFHexDumpWidth")
