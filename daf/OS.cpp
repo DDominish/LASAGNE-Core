@@ -72,13 +72,13 @@ namespace DAF_OS
 #if defined(ACE_WIN32)
             switch (int(priority_index)) {
 # if defined(DAF_HAS_THREAD_PRIORITY_TIME_CRITICAL)
-            case THREAD_PRIORITY_TIME_CRITICAL:
+            case DAF_PRIORITY_TIME_CRITICAL: // Fall though
 # endif
-            case THREAD_PRIORITY_IDLE: return ACE_Sched_Priority(priority_index + priority_offset);
+            case DAF_PRIORITY_IDLE: return ACE_Sched_Priority(priority_index + priority_offset);
             }
 #endif // defined(ACE_WIN32)
 
-            return ACE_Sched_Priority(ace_range(-2, +2, int(priority_index)) + priority_offset);
+            return ACE_Sched_Priority(ace_range(DAF_PRIORITY_LOWEST, DAF_PRIORITY_HIGHEST, priority_index) + priority_offset);
         }
 
         return ACE_Sched_Priority(priority_offset);

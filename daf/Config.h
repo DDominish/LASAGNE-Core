@@ -42,6 +42,30 @@ template <typename T> inline void ID ## _UNUSED(const T& = (ID)) {}
 
 #if defined(ACE_HAS_THREADS)
 
+# if defined(ACE_HAS_WTHREADS) && !defined(ACE_HAS_WINCE)
+
+#  define DAF_HAS_WIN32_PRIORITY_CLASS
+
+#  define DAF_PRIORITY_IDLE             long(THREAD_PRIORITY_IDLE)
+#  define DAF_PRIORITY_LOWEST           long(THREAD_PRIORITY_LOWEST)
+#  define DAF_PRIORITY_BELOW_NORMAL     long(THREAD_PRIORITY_BELOW_NORMAL)
+#  define DAF_PRIORITY_NORMAL           long(THREAD_PRIORITY_NORMAL)
+#  define DAF_PRIORITY_ABOVE_NORMAL     long(THREAD_PRIORITY_ABOVE_NORMAL)
+#  define DAF_PRIORITY_HIGHEST          long(THREAD_PRIORITY_HIGHEST)
+#  define DAF_PRIORITY_TIME_CRITICAL    long(THREAD_PRIORITY_TIME_CRITICAL)
+
+# else
+
+#  define DAF_PRIORITY_IDLE             long(-15)
+#  define DAF_PRIORITY_LOWEST           long(-2)
+#  define DAF_PRIORITY_BELOW_NORMAL     long(-1)
+#  define DAF_PRIORITY_NORMAL           long(0)
+#  define DAF_PRIORITY_ABOVE_NORMAL     long(+1)
+#  define DAF_PRIORITY_HIGHEST          long(+2)
+#  define DAF_PRIORITY_TIME_CRITICAL    long(+15)
+
+# endif
+
 // Setting the REALTIME_PRIORITY_CLASS to OS schedulers
 // is almost always a VERY BAD THING. This guard will allow people
 // to easily disable this priority class feature in DAF.
@@ -50,15 +74,11 @@ template <typename T> inline void ID ## _UNUSED(const T& = (ID)) {}
 //       For example, a real - time process that executes for more than a
 //       very brief interval can cause disk caches not to flush or cause
 //       the mouse to be unresponsive.
-# define DAF_HAS_REALTIME_PRIORITY_CLASS
+// # define DAF_HAS_REALTIME_PRIORITY_CLASS
 // Setting the THREAD_PRIORITY_TIME_CRITICAL to OS schedulers
 // is almost always a VERY BAD THING. This guard will allow people
 // to easily disable this priority feature in DAF.
-# define DAF_HAS_THREAD_PRIORITY_TIME_CRITICAL
-
-# if defined(ACE_HAS_WTHREADS) && !defined(ACE_HAS_WINCE)
-#  define DAF_HAS_WIN32_PRIORITY_CLASS
-# endif
+// # define DAF_HAS_THREAD_PRIORITY_TIME_CRITICAL
 
 /**** Make Windows behave like Linux threads when in cancellable event (ie wait/sleep) ***/
 

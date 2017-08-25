@@ -68,16 +68,16 @@ namespace // Use Anonymous namespace
         do {
 
             switch (DAF_OS::sched_PRIORITY(priority_class, 0)) {
-            case THREAD_PRIORITY_IDLE:              priority_class = IDLE_PRIORITY_CLASS;           break;
-            case THREAD_PRIORITY_LOWEST:            priority_class = BELOW_NORMAL_PRIORITY_CLASS;   break;
-            case THREAD_PRIORITY_BELOW_NORMAL:      priority_class = BELOW_NORMAL_PRIORITY_CLASS;   break;
-            case THREAD_PRIORITY_NORMAL:            priority_class = NORMAL_PRIORITY_CLASS;         break;
-            case THREAD_PRIORITY_ABOVE_NORMAL:      priority_class = ABOVE_NORMAL_PRIORITY_CLASS;   break;
-            case THREAD_PRIORITY_HIGHEST:           priority_class = HIGH_PRIORITY_CLASS;           break;
+            case DAF_PRIORITY_IDLE:                 priority_class = IDLE_PRIORITY_CLASS;           break;
+            case DAF_PRIORITY_LOWEST:               priority_class = BELOW_NORMAL_PRIORITY_CLASS;   break;
+            case DAF_PRIORITY_BELOW_NORMAL:         priority_class = BELOW_NORMAL_PRIORITY_CLASS;   break;
+            case DAF_PRIORITY_NORMAL:               priority_class = NORMAL_PRIORITY_CLASS;         break;
+            case DAF_PRIORITY_ABOVE_NORMAL:         priority_class = ABOVE_NORMAL_PRIORITY_CLASS;   break;
+            case DAF_PRIORITY_HIGHEST:              priority_class = HIGH_PRIORITY_CLASS;           break;
 # if defined(DAF_HAS_REALTIME_PRIORITY_CLASS)
-            case THREAD_PRIORITY_TIME_CRITICAL:     priority_class = REALTIME_PRIORITY_CLASS;       break;
+            case DAF_PRIORITY_TIME_CRITICAL:        priority_class = REALTIME_PRIORITY_CLASS;       break;
 # else
-            case THREAD_PRIORITY_TIME_CRITICAL:     priority_class = HIGH_PRIORITY_CLASS;           break;
+            case DAF_PRIORITY_TIME_CRITICAL:        priority_class = HIGH_PRIORITY_CLASS;           break;
 # endif // defined(DAF_HAS_REALTIME_PRIORITY_CLASS)
             default: continue; // Skip Setting - Unknown Value
             }
