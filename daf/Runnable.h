@@ -59,7 +59,7 @@ namespace DAF
         */
         virtual long    runPriority(void) const
         {
-            return long(0); // +/- value around ACE_DEFAULT_THREAD_PRIORITY which is an OS dependant value
+            return DAF_PRIORITY_NORMAL; // +/- value around ACE_DEFAULT_THREAD_PRIORITY which is an OS dependant value
         }
     };
 
