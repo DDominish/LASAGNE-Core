@@ -55,7 +55,7 @@ namespace DAF
     int
     Semaphore::acquire(const ACE_Time_Value * abstime)
     {
-        while (!this->interrupted()) {
+        while (this->interrupted() ? false : true) {
 
             ACE_GUARD_REACTION(_mutex_type, guard, *this, DAF_THROW_EXCEPTION(LockFailureException));
 
@@ -84,21 +84,21 @@ namespace DAF
     }
 
     int
-    Semaphore::release(void)
+    Semaphore::release(int permits)
     {
-        ACE_GUARD_REACTION(_mutex_type, guard, *this, DAF_THROW_EXCEPTION(LockFailureException));
-        ++this->permits_;
-        return this->signal();
-    }
+        int result = 0;
 
-    int
-    Semaphore::release(int n)
-    {
-        int result = 0; while (n-- > 0) {
-            if (this->release()) {
-                result = -1;
+        if (permits > 0) {
+
+            ACE_GUARD_REACTION(_mutex_type, guard, *this, DAF_THROW_EXCEPTION(LockFailureException));
+
+            while (permits-- > 0) {
+                ++this->permits_; if (this->signal()) {
+                    result = -1;
+                }
             }
         }
+
         return result;
     }
 

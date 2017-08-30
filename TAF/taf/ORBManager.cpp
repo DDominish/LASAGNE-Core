@@ -3,7 +3,7 @@
     Department of Defence,
     Australian Government
 
-	This file is part of LASAGNE.
+    This file is part of LASAGNE.
 
     LASAGNE is free software: you can redistribute it and/or modify
     it under the terms of the GNU Lesser General Public License as
@@ -294,7 +294,7 @@ namespace TAF {
                 throw "Security-Load-Failed";
             }
         } DAF_CATCH_ALL {
-            DAF::set_property(TAF_SECURITYDISABLE, "1");
+            DAF::set_property(TAF_SECURITYENABLE, "0");
             ACE_DEBUG((LM_WARNING, ACE_TEXT("TAFSecurity (%P | %t) WARNING:")
                 ACE_TEXT(" Unable to initialize %s instance with SSLIOP - Security enforcement disabled!\n")
                 , tafORBName()));
@@ -389,26 +389,29 @@ namespace TAF {
     int
     ORB::close(u_long flags)
     {
-        if (flags) do {   /* Clean-up ORB Resources */
+        if (flags) {
 
-            if (CORBA::is_nil(TheTAFOrb().in()) || CORBA::is_nil(TheTAFOrbCore())) {
-                break;
-            } else if (TheTAFOrbCore()->has_shutdown()) {
-                break;
-            } else try {
-                TheTAFOrb()->shutdown(true);
-            } DAF_CATCH_ALL {
-                /* Ignore Exceptions - We are shutting down */
-            }
+            do {   /* Clean-up ORB Resources */
 
-            baseContext_        = CosNaming::NamingContext::_nil();
-            rootContext_        = CosNaming::NamingContext::_nil();
+                if (CORBA::is_nil(TheTAFOrb().in()) || CORBA::is_nil(TheTAFOrbCore())) {
+                    break;
+                } else if (TheTAFOrbCore()->has_shutdown()) {
+                    break;
+                } else try {
+                    TheTAFOrb()->shutdown(true);
+                } DAF_CATCH_ALL{
+                    /* Ignore Exceptions - We are shutting down */
+                }
 
-            this->IORTable_     = IORTable::Table::_nil();      // Reset Local IORTable cache
-            this->defaultPOA_   = PortableServer::POA::_nil();  // Reset Local DefaultPOA cache
-            this->rootPOA_      = PortableServer::POA::_nil();  // Reset Local RootPOA cache
+                baseContext_ = CosNaming::NamingContext::_nil();
+                rootContext_ = CosNaming::NamingContext::_nil();
 
-        } while (false);
+                this->IORTable_ = IORTable::Table::_nil();      // Reset Local IORTable cache
+                this->defaultPOA_ = PortableServer::POA::_nil();  // Reset Local DefaultPOA cache
+                this->rootPOA_ = PortableServer::POA::_nil();  // Reset Local RootPOA cache
+
+            } while (false);
+        }
 
         return DAF::TaskExecutor::close(flags);
     }
@@ -555,7 +558,7 @@ namespace TAF  // Helper Functions to Singleton
     bool    isSecurityEnabled(void)
     {
 #if defined(TAF_HAS_SECURITY)
-        return DAF::get_numeric_property<bool>(TAF_SECURITYDISABLE, false, true) ? false : true;
+        return DAF::get_numeric_property<bool>(TAF_SECURITYENABLE, true, true);
 #else
         return false;
 #endif

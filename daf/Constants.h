@@ -3,7 +3,7 @@
     Department of Defence,
     Australian Government
 
-	This file is part of LASAGNE.
+    This file is part of LASAGNE.
 
     LASAGNE is free software: you can redistribute it and/or modify
     it under the terms of the GNU Lesser General Public License as
@@ -22,15 +22,6 @@
 #define DAF_CONSTANTS_H
 
 #include <ace/config.h>
-
-/**
-* @file    Constants.h
-* @author
-* @author   $LastChangedBy$
-* @date
-* @version  $Revision$
-* @ingroup  \todo{what group?}
-*/
 
 /*************** ACE Conditional Support Checks ***************/
 
@@ -182,10 +173,10 @@
 /******************* TAF SECURITY CONSTANTS *******************/
 
 #define TAF_SECURITY                ACE_TEXT("TAFSecurity")
-#define TAF_SECURITYDISABLE         ACE_TEXT("TAFSecurityDisable")
+#define TAF_SECURITYENABLE          ACE_TEXT("TAFSecurityEnable")
 #define TAF_DEFAULTALLOWANCE        ACE_TEXT("TAFSecurityDefaultAllowance")
 #define TAF_COLLOCATEDALLOWANCE     ACE_TEXT("TAFSecurityCollocatedAllowance")
-#define TAF_SSLNOPROTECTION         ACE_TEXT("TAFSSLNoProtection")
+#define TAF_SSLPROTECTION           ACE_TEXT("TAFSecuritySSLProtection")
 
 /******************* OTHER CONSTANTS *************************/
 
