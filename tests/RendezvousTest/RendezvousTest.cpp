@@ -61,7 +61,7 @@ namespace
             }
         };
 
-        void operator()(argument_type & v)
+        void operator()(std::vector<int> & v)
         {
             ran = true;
             for (size_t i = 0; i < v.size(); i++) {
@@ -138,7 +138,7 @@ namespace
 
         virtual int run(void)
         {
-            int rtnval = 0, error = 0;
+            int rtnval = 0;
 
             if (delay_msec) {
                 DAF_OS::sleep(ACE_Time_Value(0, suseconds_t(delay_msec * 1000)));
@@ -697,8 +697,10 @@ int test_RendezvousCtorZero(int threadCount)
 
     int expected = 1, value = WILD_INITIAL_VALUE;
 
+    TestRendFunc functor;
+
     try {
-        RendezvousTest_t(0, TestRendFunc()).rendezvous(1,100);
+        RendezvousTest_t(0, functor).rendezvous(1,100);
     }
     catch (const DAF::InitializationException &) {
         value = 1;

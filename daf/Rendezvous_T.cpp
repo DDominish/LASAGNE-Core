@@ -25,10 +25,10 @@
 
 namespace DAF
 {
-    template <typename T> typename RendezvousCommand<T>::result_type
-    RendezvousCommand<T>::operator () (typename RendezvousCommand<T>::argument_type & val)
+    template <typename T> typename RendezvousCommand<T>::_result_type
+    RendezvousCommand<T>::operator () (typename RendezvousCommand<T>::_argument_type & val)
     {
-        if (!val.empty()) {
+        if (val.empty() ? false : true) {
             val.push_back(val.front()); val.erase(val.begin());
         }
     }
@@ -36,7 +36,7 @@ namespace DAF
     /********************************************************************/
 
     template <typename T, typename F>
-    Rendezvous<T,F>::Rendezvous(int parties, _function_type & function) : Monitor()
+    Rendezvous<T,F>::Rendezvous(int parties, typename Rendezvous<T,F>::_function_type & function) : Monitor()
         , rendezvousSemaphore_  (ace_max(0, parties))
         , rendezvousFunction_   (function)
         , parties_              (0)

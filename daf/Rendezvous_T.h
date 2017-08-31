@@ -44,8 +44,12 @@ namespace DAF
   * some other thread (or itself, if parties is 1).
   */
     template <typename T>
-    struct RendezvousCommand : std::unary_function< std::vector<T>, void> {
-        virtual typename result_type operator () (typename argument_type &);
+    struct RendezvousCommand : std::unary_function<std::vector<T>,void> {
+        typedef T               _value_type;
+        typedef void            _result_type;
+        typedef std::vector<T>  _argument_type;
+        virtual ~RendezvousCommand(void) {}
+        virtual typename RendezvousCommand<T>::_result_type operator () (typename RendezvousCommand<T>::_argument_type &);
     };
 
     /** @class Rendezvous
@@ -94,14 +98,13 @@ namespace DAF
         typedef T   _value_type;
         typedef F   _function_type;
 
-        typedef typename _function_type::argument_type  _slots_type;
-
-        typedef typename Monitor::_mutex_type   _monitor_type;
+        typedef typename _function_type::_argument_type _slots_type;
+        typedef typename Monitor::_mutex_type           _mutex_type;
 
         /**
         * Create a Barrier for the indicated number of parties,
         */
-        Rendezvous(int parties, _function_type & function = F());
+        Rendezvous(int parties, typename Rendezvous<T,F>::_function_type & function = F());
 
         /** \todo{Fill this in} */
         virtual ~Rendezvous(void);
